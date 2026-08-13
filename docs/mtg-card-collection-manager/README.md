@@ -61,10 +61,23 @@ Scanning, OCR, marketplace pricing, authentication, cloud hosting, peer-to-peer 
 
 - **Desktop shell:** Tauri.
 - **Frontend:** TypeScript and Svelte.
+- **UI system:** shadcn-svelte with Tailwind CSS and Lucide Svelte icons.
 - **Application backend:** Rust.
 - **Persistence:** SQLite with explicit migrations.
 - **External card data:** MTGJSON through an isolated catalog importer.
 - **Images:** Local filesystem cache indexed by Scryfall card and image identifiers.
+- **MTG symbols:** Mana font assets from the ignored mana-master source, with only required assets committed.
+
+### UI component policy
+
+The frontend must use shadcn-svelte components supplied by the configured dependency/component workflow. This is an architectural requirement, not a visual preference.
+
+- Use the shadcn-svelte Button, Input, Select, Command, Popover, DropdownMenu, Dialog, Sheet, Table, Badge, Tooltip, and related components whenever the corresponding primitive is needed.
+- Feature code must import these components from the project’s local shadcn component paths under `src/lib/components/ui/`.
+- Do not create custom-made replacements for components provided by shadcn-svelte. This includes custom buttons, inputs, dropdowns, command menus, dialogs, tables, menus, focus management, keyboard navigation, or animation behavior.
+- Feature components may compose shadcn-svelte primitives with domain-specific content and Tailwind layout utilities, but must not duplicate primitive behavior.
+- If a required primitive is not provided by shadcn-svelte, the exception and any additional dependency must be documented before implementation.
+- `app.css` is reserved for Tailwind setup, theme tokens, global resets, and asset-specific Mana font mappings; feature and component styling belongs in Tailwind utilities and shadcn-svelte component variants.
 
 The frontend communicates with Rust through typed application commands. UI components must not access SQLite or external HTTP services directly.
 

@@ -1,1 +1,286 @@
-// Frontend-facing Tauri commands will be added here as core services are implemented.
+use crate::{domain::OwnedCard, error::AppError, repositories, services, storage::Database};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::sync::Mutex;
+use tauri::State;
+
+#[derive(Debug, Serialize)]
+pub struct OwnedCardView {
+    pub id: String,
+    pub name: String,
+    pub set_code: String,
+    pub collector_number: String,
+    pub mana_cost: Option<String>,
+    pub card_type: Option<String>,
+    pub quantity: i64,
+    pub language: String,
+    pub foil: bool,
+    pub condition: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddCardRequest {
+    pub name: String,
+    pub set_code: String,
+    pub collector_number: String,
+    pub quantity: i64,
+    pub language: String,
+    pub foil: bool,
+    pub condition: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CatalogSearchRequest {
+    pub query: String,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OwnedSearchRequest {
+    pub query: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CatalogCardView {
+    pub uuid: String,
+    pub name: String,
+    pub set_code: String,
+    pub collector_number: String,
+    pub rarity: Option<String>,
+    pub oracle_text: Option<String>,
+    pub mana_cost: Option<String>,
+    pub card_type: Option<String>,
+    pub scryfall_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddCatalogCardRequest {
+    pub printing_id: String,
+    pub quantity: i64,
+    pub language: String,
+    pub foil: bool,
+    pub condition: String,
+    pub notes: Option<String>,
+}
+
+fn db_error(error: AppError) -> String {
+    error.to_string()
+}
+
+#[tauri::command]
+pub fn list_owned_cards(state: State<'_, Mutex<Database>>) -> Result<Vec<OwnedCardView>, String> {
+    let db = state
+        .lock()
+        .map_err(|_| "database lock poisoned".to_string())?;
+    services::list_owned(&db).map_err(db_error).map(|rows| {
+        rows.into_iter()
+            .map(
+                |(card, name, set_code, collector_number, mana_cost, card_type)| OwnedCardView {
+                    id: card.id,
+                    name,
+                    set_code,
+                    collector_number,
+                    mana_cost,
+                    card_type,
+                    quantity: card.quantity,
+                    language: card.language,
+                    foil: card.foil,
+                    condition: card.condition,
+                    notes: card.notes,
+                },
+            )
+            .collect()
+    })
+}
+
+#[tauri::command]
+pub fn search_owned_cards(
+    state: State<'_, Mutex<Database>>,
+    request: OwnedSearchRequest,
+) -> Result<Vec<OwnedCardView>, String> {
+    let db = state
+        .lock()
+        .map_err(|_| "database lock poisoned".to_string())?;
+    let rows = if request.query.trim().is_empty() {
+        services::list_owned(&db)
+    } else {
+        services::search_owned(&db, &request.query)
+    }
+    .map_err(db_error)?;
+    Ok(rows
+        .into_iter()
+        .map(
+            |(card, name, set_code, collector_number, mana_cost, card_type)| OwnedCardView {
+                id: card.id,
+                name,
+                set_code,
+                collector_number,
+                mana_cost,
+                card_type,
+                quantity: card.quantity,
+                language: card.language,
+                foil: card.foil,
+                condition: card.condition,
+                notes: card.notes,
+            },
+        )
+        .collect())
+}
+
+#[tauri::command]
+pub fn add_owned_card(
+    state: State<'_, Mutex<Database>>,
+    request: AddCardRequest,
+) -> Result<OwnedCardView, String> {
+    if request.name.trim().is_empty() || request.set_code.trim().is_empty() {
+        return Err("card name and set code are required".into());
+    }
+    let db = state
+        .lock()
+        .map_err(|_| "database lock poisoned".to_string())?;
+    let printing_id = uuid::Uuid::new_v4().to_string();
+    repositories::upsert_catalog(
+        &db,
+        &[crate::domain::CatalogCard {
+            uuid: printing_id.clone(),
+            name: request.name.trim().into(),
+            set_code: request.set_code.trim().into(),
+            collector_number: request.collector_number.trim().into(),
+            rarity: None,
+            oracle_text: None,
+            mana_cost: None,
+            card_type: None,
+            scryfall_id: None,
+        }],
+        "manual",
+    )
+    .map_err(db_error)?;
+    let card = OwnedCard {
+        id: uuid::Uuid::new_v4().to_string(),
+        printing_id,
+        quantity: request.quantity,
+        language: request.language,
+        foil: request.foil,
+        condition: request.condition,
+        notes: request.notes,
+    };
+    services::add_owned_card(&db, &card).map_err(db_error)?;
+    Ok(OwnedCardView {
+        id: card.id,
+        name: request.name.trim().into(),
+        set_code: request.set_code.trim().into(),
+        collector_number: request.collector_number.trim().into(),
+        mana_cost: None,
+        card_type: None,
+        quantity: card.quantity,
+        language: card.language,
+        foil: card.foil,
+        condition: card.condition,
+        notes: card.notes,
+    })
+}
+
+#[tauri::command]
+pub fn add_owned_catalog_card(
+    state: State<'_, Mutex<Database>>,
+    request: AddCatalogCardRequest,
+) -> Result<OwnedCardView, String> {
+    if request.printing_id.trim().is_empty() {
+        return Err("a catalog printing must be selected".into());
+    }
+    if request.quantity <= 0 {
+        return Err("quantity must be greater than zero".into());
+    }
+    let db = state
+        .lock()
+        .map_err(|_| "database lock poisoned".to_string())?;
+    let catalog = repositories::find_catalog_card(&db, &request.printing_id)
+        .map_err(db_error)?
+        .ok_or_else(|| "selected catalog printing does not exist".to_string())?;
+    let card = OwnedCard {
+        id: uuid::Uuid::new_v4().to_string(),
+        printing_id: catalog.uuid.clone(),
+        quantity: request.quantity,
+        language: request.language,
+        foil: request.foil,
+        condition: request.condition,
+        notes: request.notes,
+    };
+    services::add_owned_catalog_card(&db, &card).map_err(db_error)?;
+    Ok(OwnedCardView {
+        id: card.id,
+        name: catalog.name,
+        set_code: catalog.set_code,
+        collector_number: catalog.collector_number,
+        mana_cost: catalog.mana_cost,
+        card_type: catalog.card_type,
+        quantity: card.quantity,
+        language: card.language,
+        foil: card.foil,
+        condition: card.condition,
+        notes: card.notes,
+    })
+}
+
+#[tauri::command]
+pub fn remove_owned_card(state: State<'_, Mutex<Database>>, id: String) -> Result<(), String> {
+    let db = state
+        .lock()
+        .map_err(|_| "database lock poisoned".to_string())?;
+    services::remove_owned_card(&db, &id).map_err(db_error)
+}
+
+#[tauri::command]
+pub fn catalog_import_mtgjson(
+    state: State<'_, Mutex<Database>>,
+    path: String,
+) -> Result<usize, String> {
+    let source = Path::new(&path);
+    let input = std::fs::read_to_string(source)
+        .map_err(|error| format!("could not read MTGJSON file: {error}"))?;
+    let cards = crate::integrations::mtgjson::parse_all_printings(&input).map_err(db_error)?;
+    let version = source
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("mtgjson")
+        .to_string();
+    let db = state
+        .lock()
+        .map_err(|_| "database lock poisoned".to_string())?;
+    services::import_catalog(&db, &cards, &version).map_err(db_error)?;
+    Ok(cards.len())
+}
+
+#[tauri::command]
+pub fn catalog_search(
+    state: State<'_, Mutex<Database>>,
+    request: CatalogSearchRequest,
+) -> Result<Vec<CatalogCardView>, String> {
+    let query = request.query.trim();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+    let db = state
+        .lock()
+        .map_err(|_| "database lock poisoned".to_string())?;
+    services::search_catalog(&db, query, request.limit.unwrap_or(25))
+        .map_err(db_error)
+        .map(|cards| {
+            cards
+                .into_iter()
+                .map(|card| CatalogCardView {
+                    uuid: card.uuid,
+                    name: card.name,
+                    set_code: card.set_code,
+                    collector_number: card.collector_number,
+                    rarity: card.rarity,
+                    oracle_text: card.oracle_text,
+                    mana_cost: card.mana_cost,
+                    card_type: card.card_type,
+                    scryfall_id: card.scryfall_id,
+                })
+                .collect()
+        })
+}

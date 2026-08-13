@@ -1,77 +1,24 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
+  import Sidebar from "../lib/components/layout/Sidebar.svelte";
+  import PageHeader from "../lib/components/layout/PageHeader.svelte";
+  import CollectionView from "../lib/components/collection/CollectionView.svelte";
+  import FeaturePlaceholder from "../lib/components/shared/FeaturePlaceholder.svelte";
+  import CatalogSettings from "../lib/components/settings/CatalogSettings.svelte";
 
-  let status = "Starting local workspace…";
-  let backendReady = false;
-
-  onMount(async () => {
-    try {
-      status = await invoke<string>("app_status");
-      backendReady = true;
-    } catch {
-      status = "Web preview mode — Tauri backend is not connected.";
-    }
-  });
+  type Page = "collection" | "boxes" | "decks" | "settings";
+  let page: Page = "collection";
+  const pageTitles: Record<Page, string> = { collection: "Collection", boxes: "Boxes", decks: "Decks", settings: "Settings" };
+  function navigate(next: Page) { page = next; }
+  onMount(() => { document.documentElement.dataset.appReady = "true"; });
 </script>
 
-<svelte:head>
-  <title>MTG Collection Manager</title>
-</svelte:head>
-
-<main class="shell">
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">LOCAL-FIRST · OFFLINE READY</p>
-      <h1>MTG Collection Manager</h1>
-    </div>
-    <span class:ready={backendReady} class="status">
-      <span class="status-dot"></span>
-      {backendReady ? "Local workspace ready" : "Initializing"}
-    </span>
-  </header>
-
-  <section class="hero">
-    <div>
-      <p class="eyebrow">FOUNDATION BUILD</p>
-      <h2>Your collection, kept close.</h2>
-      <p class="summary">
-        A calm, account-free home for your cards, Boxes, Decks, and Tags.
-        Core services are the next layer of the build.
-      </p>
-    </div>
-    <div class="hero-mark" aria-hidden="true">✦</div>
-  </section>
-
-  <section class="workspace-grid" aria-label="Application areas">
-    <article class="workspace-card active">
-      <span class="card-index">01</span>
-      <h3>Collection</h3>
-      <p>Search and manage owned cards in compact offline mode.</p>
-      <span class="card-state">Scaffolded</span>
-    </article>
-    <article class="workspace-card">
-      <span class="card-index">02</span>
-      <h3>Boxes</h3>
-      <p>Organize physical locations and move cards safely.</p>
-      <span class="card-state">Coming next</span>
-    </article>
-    <article class="workspace-card">
-      <span class="card-index">03</span>
-      <h3>Decks</h3>
-      <p>Assemble owned Decks with quantity-aware allocation.</p>
-      <span class="card-state">Coming next</span>
-    </article>
-    <article class="workspace-card">
-      <span class="card-index">04</span>
-      <h3>Catalog</h3>
-      <p>Import a lightweight local projection of MTGJSON data.</p>
-      <span class="card-state">Coming next</span>
-    </article>
-  </section>
-
-  <footer>
-    <span>Backend: {status}</span>
-    <span>MTGJSON metadata · optional Scryfall images</span>
-  </footer>
-</main>
+<svelte:head><title>Biblioplex · {pageTitles[page]}</title></svelte:head>
+<div class="min-h-screen bg-background">
+  <Sidebar {page} {navigate} />
+  <main class="ml-60 min-h-screen px-12 py-10 max-md:ml-20 max-md:px-6 max-sm:px-4">
+    <PageHeader title={pageTitles[page]} />
+    {#if page === "collection"}<CollectionView />{:else if page === "settings"}<CatalogSettings />{:else}<FeaturePlaceholder kind={page} />{/if}
+    <footer class="mt-10 flex justify-between gap-4 text-xs text-[#647394]"><span>Biblioplex · SQLite local storage</span><span>Account-free by design</span></footer>
+  </main>
+</div>

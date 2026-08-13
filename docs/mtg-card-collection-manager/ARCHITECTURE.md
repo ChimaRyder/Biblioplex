@@ -116,6 +116,84 @@ Each feature module contains its screens, view models, command wrappers, and fea
 
 Frontend types mirror the public command DTOs from Rust. They must not expose database implementation details.
 
+## UI design system and iconography
+
+### Design-system decision
+
+The frontend uses shadcn-svelte as its component foundation, with Tailwind CSS for utility styling. Supported controls must use the corresponding shadcn-svelte components provided by the dependency and exposed through the project’s configured local component paths. Feature code may compose these components, but must not replace them with hand-authored equivalents. See the shadcn-svelte documentation at https://shadcn-svelte.com/docs.
+
+Use the current Svelte 5 and Tailwind CSS 4-compatible shadcn-svelte setup when initializing the design system. Keep the generated component configuration, CSS variables, utility helper, and dependency-provided component source under version control. Components must be added through the shadcn-svelte component workflow rather than invented locally.
+
+### Required UI packages
+
+- shadcn-svelte: accessible, locally owned UI component source.
+- bits-ui: headless interaction primitives used by shadcn-svelte components.
+- tailwindcss: utility styling and design tokens.
+- tailwind-variants: component variants where generated shadcn-svelte components require them.
+- lucide-svelte: general-purpose interface icons.
+
+Lucide icons are for application chrome and actions only: navigation, search, settings, sorting, filtering, import, remove, close, refresh, and status indicators. Import icons as individual Svelte components so unused icons are not rendered or bundled unnecessarily.
+
+### MTG-specific symbols
+
+The Mana font from mana-master remains separate from the general icon system:
+
+- Use Mana symbols for mana costs and Magic card symbols.
+- Use Lucide for generic application controls.
+- Do not replace Mana glyphs with Lucide icons.
+- Keep the mana-master source directory ignored.
+- Commit only the specific font assets required by the application, currently public/fonts/mana.woff2.
+- Keep the local Mana CSS mapping small and limited to symbols rendered by the app.
+
+### Component organization
+
+UI primitives belong under src/lib/components/ui/ and must come from the shadcn-svelte component set:
+
+- button
+- input
+- select
+- command
+- popover
+- dropdown-menu
+- dialog
+- sheet
+- table
+- badge
+- tooltip
+
+The following component policy is mandatory:
+
+- Use shadcn-svelte components whenever a matching primitive exists, including Button, Input, Select, Command, Popover, DropdownMenu, Dialog, Sheet, Table, Badge, Tooltip, and related components.
+- Import feature-facing primitives through the project-owned shadcn component paths under `src/lib/components/ui/`.
+- Do not create custom replacements for shadcn-svelte primitives, wrappers that duplicate their behavior, or bespoke controls with equivalent responsibilities.
+- Feature components may compose shadcn-svelte primitives and add domain-specific layout/content, but may not reimplement primitive interaction, accessibility, focus management, keyboard navigation, animation, or state behavior.
+- If shadcn-svelte does not provide a required primitive, document the exception in the feature architecture before introducing another dependency or a narrowly scoped custom component.
+
+Application composition belongs under feature and layout directories:
+
+- src/lib/components/layout/Sidebar.svelte
+- src/lib/components/layout/PageHeader.svelte
+- src/lib/components/collection/CollectionTable.svelte
+- src/lib/components/collection/CollectionSearch.svelte
+- src/lib/components/collection/QuickAdd.svelte
+- src/lib/components/catalog/CatalogSearchResults.svelte
+
+Feature components may compose UI primitives, but UI primitives must not import feature services, repositories, or Tauri commands.
+
+### Visual and accessibility rules
+
+- Use design tokens for colors, spacing, radius, typography, and focus rings rather than one-off values.
+- Preserve the existing dark Biblioplex visual language through shadcn-svelte theme variables.
+- Every icon-only button must have an accessible label and a tooltip where the action is not obvious.
+- Icons must not be the sole carrier of destructive or ambiguous meaning.
+- Keyboard navigation and visible focus states are required for search results, tables, menus, dialogs, and Quick Add.
+- Use Mana icon color classes only for mana symbols; application icons use the neutral UI palette.
+- Prefer shadcn-svelte Command, Popover, DropdownMenu, and Table primitives for catalog search, filters, sorting, and collection presentation.
+
+### Migration rule
+
+Existing hand-authored CSS may remain only for non-component global concerns during the transition. New interactive controls must use shadcn-svelte primitives, and existing bespoke controls must be replaced feature-by-feature. Tailwind utilities should provide feature layout and composition; `app.css` is limited to Tailwind setup, theme tokens, resets, and Mana asset declarations. Keep Mana font declarations and glyph mappings in the global style layer because they are asset-specific, not general UI components.
+
 ## Rust core structure
 
 src-tauri/src/commands/ contains the only functions exposed to the frontend. Commands parse request DTOs, resolve services, execute operations, and return stable response DTOs or typed application errors. Commands must remain thin and contain no SQL.
