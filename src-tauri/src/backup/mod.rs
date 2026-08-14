@@ -91,7 +91,10 @@ mod tests {
                 oracle_text: None,
                 mana_cost: None,
                 card_type: None,
+                power: None,
+                toughness: None,
                 scryfall_id: None,
+                faces: Vec::new(),
             }],
             "v",
         )
@@ -122,7 +125,10 @@ mod tests {
                 oracle_text: None,
                 mana_cost: None,
                 card_type: None,
+                power: None,
+                toughness: None,
                 scryfall_id: None,
+                faces: Vec::new(),
             }],
             "v",
         )

@@ -35,5 +35,22 @@ pub struct CatalogCard {
     pub oracle_text: Option<String>,
     pub mana_cost: Option<String>,
     pub card_type: Option<String>,
+    pub power: Option<String>,
+    pub toughness: Option<String>,
     pub scryfall_id: Option<String>,
+    pub faces: Vec<CatalogFace>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CatalogFace {
+    pub face_order: i64,
+    pub name: String,
+    pub mana_cost: Option<String>,
+    pub card_type: Option<String>,
+    pub oracle_text: Option<String>,
+    pub power: Option<String>,
+    pub toughness: Option<String>,
+    pub scryfall_id: Option<String>,
+    pub cached_path: Option<String>,
+    pub image_status: String,
 }

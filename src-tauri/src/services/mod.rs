@@ -48,6 +48,9 @@ pub fn list_owned(
         Option<String>,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Vec<crate::domain::CatalogFace>,
     )>,
 > {
     repositories::list_owned(db)
@@ -67,6 +70,9 @@ pub fn search_owned(
         Option<String>,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Vec<crate::domain::CatalogFace>,
     )>,
 > {
     repositories::search_owned(db, query)
@@ -134,7 +140,10 @@ mod tests {
                 oracle_text: None,
                 mana_cost: None,
                 card_type: None,
+                power: None,
+                toughness: None,
                 scryfall_id: None,
+                faces: Vec::new(),
             }],
             "test",
         )

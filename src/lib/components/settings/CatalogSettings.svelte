@@ -7,6 +7,8 @@
   let importPath = "";
   let importStatus = "";
   let importing = false;
+  let clearing = false;
+  let clearArmed = false;
 
   async function importMtgJson() {
     if (!importPath.trim() || importing) return;
@@ -16,6 +18,14 @@
       importStatus = `Imported ${count.toLocaleString()} catalog cards. Your collection data was preserved.`;
     } catch (err) { importStatus = "Import failed: " + String(err); }
     finally { importing = false; }
+  }
+
+  async function clearCatalog() {
+    if (!clearArmed) { clearArmed = true; importStatus = "Click Clear catalog again to confirm. Owned cards will be preserved."; return; }
+    clearing = true; clearArmed = false; importStatus = "Clearing unused catalog records…";
+    try { const count = await invoke<number>("catalog_clear"); importStatus = `Cleared ${count.toLocaleString()} unused catalog printings. Owned cards were preserved.`; }
+    catch (err) { importStatus = "Catalog clear failed: " + String(err); }
+    finally { clearing = false; }
   }
 </script>
 
@@ -29,5 +39,6 @@
     <Button type="submit" disabled={importing || !importPath.trim()}><Icon name="upload" size={15} />{importing ? "Importing…" : "Import catalog"}</Button>
   </form>
   {#if importStatus}<p class:import-error={importStatus.startsWith("Import failed")} class="mt-4 text-sm text-emerald-300" role="status">{importStatus}</p>{/if}
+  <div class="mt-7 flex items-center justify-between gap-4 border-t border-border pt-5 max-sm:flex-col max-sm:items-start"><div><p class="text-sm font-semibold text-foreground">Reset imported catalog</p><p class="mt-1 text-xs text-muted">Removes unused catalog metadata, faces, and cached images. Owned cards remain safe.</p></div><Button variant="destructive" size="sm" disabled={clearing} onclick={clearCatalog}><Icon name="trash" size={14} />{clearArmed ? "Confirm clear" : clearing ? "Clearing…" : "Clear catalog"}</Button></div>
 </section>
 <section class="max-w-3xl rounded-2xl border border-border bg-panel p-7 max-sm:p-5"><p class="mb-2 text-[11px] font-bold tracking-[.16em] text-[#8b9bbd]">COMING LATER</p><h2 class="mb-2 text-xl">Images and backups</h2><p class="text-sm leading-relaxed text-muted">Optional cached images, versioned JSON export/import, and advanced SQLite backups will be added through the application command layer.</p></section>

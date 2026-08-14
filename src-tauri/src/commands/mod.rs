@@ -1,4 +1,4 @@
-use crate::{domain::OwnedCard, error::AppError, repositories, services, storage::Database};
+use crate::{domain::{CatalogFace, OwnedCard}, error::AppError, repositories, services, storage::Database};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Mutex;
@@ -20,6 +20,37 @@ pub struct OwnedCardView {
     pub rarity: Option<String>,
     pub oracle_text: Option<String>,
     pub scryfall_id: Option<String>,
+    pub power: Option<String>,
+    pub toughness: Option<String>,
+    pub faces: Vec<CardFaceView>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct CardFaceView {
+    pub face_order: i64,
+    pub name: String,
+    pub mana_cost: Option<String>,
+    pub card_type: Option<String>,
+    pub oracle_text: Option<String>,
+    pub power: Option<String>,
+    pub toughness: Option<String>,
+    pub image: ImageView,
+}
+#[derive(Debug, Serialize, Clone)]
+pub struct ImageView { pub cached_path: Option<String>, pub remote_url: Option<String>, pub status: String }
+
+fn face_views(faces: Vec<CatalogFace>, base: (&str, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)) -> Vec<CardFaceView> {
+    let source = if faces.is_empty() { vec![CatalogFace { face_order: 0, name: base.0.into(), mana_cost: base.1, card_type: base.2, oracle_text: base.3, power: base.4, toughness: base.5, scryfall_id: None, cached_path: None, image_status: "missing".into() }] } else { faces };
+    let fallback_id = source.first().and_then(|face| face.scryfall_id.clone());
+    source.into_iter().map(|face| {
+        let image_id = face.scryfall_id.clone().or_else(|| fallback_id.clone());
+        let remote_url = image_id.as_ref().and_then(|id| {
+            let mut chars = id.chars();
+            let side = if face.face_order == 0 { "front" } else { "back" };
+            Some(format!("https://cards.scryfall.io/normal/{}/{}/{}/{}.jpg", side, chars.next()?, chars.next()?, id))
+        });
+        CardFaceView { face_order: face.face_order, name: face.name, mana_cost: face.mana_cost, card_type: face.card_type, oracle_text: face.oracle_text, power: face.power, toughness: face.toughness, image: ImageView { cached_path: face.cached_path, remote_url, status: face.image_status } }
+    }).collect()
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,19 +111,20 @@ pub fn list_owned_cards(state: State<'_, Mutex<Database>>) -> Result<Vec<OwnedCa
     services::list_owned(&db).map_err(db_error).map(|rows| {
         rows.into_iter()
             .map(
-                |(card, name, set_code, collector_number, mana_cost, card_type, rarity, oracle_text, scryfall_id)| OwnedCardView {
+                |(card, name, set_code, collector_number, mana_cost, card_type, rarity, oracle_text, power, toughness, scryfall_id, faces)| OwnedCardView {
                     id: card.id,
-                    name,
+                    name: name.clone(),
                     set_code,
                     collector_number,
-                    mana_cost,
-                    card_type,
+                    mana_cost: mana_cost.clone(),
+                    card_type: card_type.clone(),
                     quantity: card.quantity,
                     language: card.language,
                     foil: card.foil,
                     condition: card.condition,
                     notes: card.notes,
-                    rarity, oracle_text, scryfall_id,
+                    rarity, oracle_text: oracle_text.clone(), power: power.clone(), toughness: toughness.clone(), scryfall_id,
+                    faces: face_views(faces, (&name, mana_cost.clone(), card_type.clone(), oracle_text.clone(), power.clone(), toughness.clone())),
                 },
             )
             .collect()
@@ -116,19 +148,20 @@ pub fn search_owned_cards(
     Ok(rows
         .into_iter()
         .map(
-            |(card, name, set_code, collector_number, mana_cost, card_type, rarity, oracle_text, scryfall_id)| OwnedCardView {
+            |(card, name, set_code, collector_number, mana_cost, card_type, rarity, oracle_text, power, toughness, scryfall_id, faces)| OwnedCardView {
                 id: card.id,
-                name,
+                name: name.clone(),
                 set_code,
                 collector_number,
-                mana_cost,
-                card_type,
+                mana_cost: mana_cost.clone(),
+                card_type: card_type.clone(),
                 quantity: card.quantity,
                 language: card.language,
                 foil: card.foil,
                 condition: card.condition,
                 notes: card.notes,
-                rarity, oracle_text, scryfall_id,
+                rarity, oracle_text: oracle_text.clone(), power: power.clone(), toughness: toughness.clone(), scryfall_id,
+                faces: face_views(faces, (&name, mana_cost.clone(), card_type.clone(), oracle_text.clone(), power.clone(), toughness.clone())),
             },
         )
         .collect())
@@ -158,6 +191,9 @@ pub fn add_owned_card(
             mana_cost: None,
             card_type: None,
             scryfall_id: None,
+            power: None,
+            toughness: None,
+            faces: Vec::new(),
         }],
         "manual",
     )
@@ -187,6 +223,9 @@ pub fn add_owned_card(
         rarity: None,
         oracle_text: None,
         scryfall_id: None,
+        power: None,
+        toughness: None,
+        faces: vec![CardFaceView { face_order: 0, name: request.name.trim().into(), mana_cost: None, card_type: None, oracle_text: None, power: None, toughness: None, image: ImageView { cached_path: None, remote_url: None, status: "missing".into() } }],
     })
 }
 
@@ -219,19 +258,22 @@ pub fn add_owned_catalog_card(
     services::add_owned_catalog_card(&db, &card).map_err(db_error)?;
     Ok(OwnedCardView {
         id: card.id,
-        name: catalog.name,
+        name: catalog.name.clone(),
         set_code: catalog.set_code,
         collector_number: catalog.collector_number,
-        mana_cost: catalog.mana_cost,
-        card_type: catalog.card_type,
+        mana_cost: catalog.mana_cost.clone(),
+        card_type: catalog.card_type.clone(),
         quantity: card.quantity,
         language: card.language,
         foil: card.foil,
         condition: card.condition,
         notes: card.notes,
         rarity: catalog.rarity,
-        oracle_text: catalog.oracle_text,
+        oracle_text: catalog.oracle_text.clone(),
         scryfall_id: catalog.scryfall_id,
+        power: catalog.power.clone(),
+        toughness: catalog.toughness.clone(),
+        faces: face_views(Vec::new(), (&catalog.name, catalog.mana_cost.clone(), catalog.card_type.clone(), catalog.oracle_text.clone(), catalog.power.clone(), catalog.toughness.clone())),
     })
 }
 
@@ -262,6 +304,12 @@ pub fn catalog_import_mtgjson(
         .map_err(|_| "database lock poisoned".to_string())?;
     services::import_catalog(&db, &cards, &version).map_err(db_error)?;
     Ok(cards.len())
+}
+
+#[tauri::command]
+pub fn catalog_clear(state: State<'_, Mutex<Database>>) -> Result<i64, String> {
+    let db = state.lock().map_err(|_| "database lock poisoned".to_string())?;
+    repositories::clear_catalog(&db).map_err(db_error)
 }
 
 #[tauri::command]

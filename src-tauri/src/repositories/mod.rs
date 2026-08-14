@@ -1,6 +1,6 @@
 use crate::storage::Database;
 use crate::{
-    domain::{CatalogCard, Location, OwnedCard, Tag},
+    domain::{CatalogCard, CatalogFace, Location, OwnedCard, Tag},
     error::{AppError, AppResult},
 };
 use rusqlite::{params, OptionalExtension};
@@ -8,19 +8,36 @@ use rusqlite::{params, OptionalExtension};
 pub fn upsert_catalog(db: &Database, cards: &[CatalogCard], version: &str) -> AppResult<()> {
     let tx = db.connection.unchecked_transaction()?;
     for card in cards {
-        tx.execute("INSERT INTO printings(id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,scryfall_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9) ON CONFLICT(id) DO UPDATE SET name=excluded.name,set_code=excluded.set_code,collector_number=excluded.collector_number,rarity=excluded.rarity,oracle_text=excluded.oracle_text,mana_cost=excluded.mana_cost,card_type=excluded.card_type,scryfall_id=excluded.scryfall_id",
-            params![card.uuid, card.name, card.set_code, card.collector_number, card.rarity, card.oracle_text, card.mana_cost, card.card_type, card.scryfall_id])?;
+        tx.execute("INSERT INTO printings(id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11) ON CONFLICT(id) DO UPDATE SET name=excluded.name,set_code=excluded.set_code,collector_number=excluded.collector_number,rarity=excluded.rarity,oracle_text=excluded.oracle_text,mana_cost=excluded.mana_cost,card_type=excluded.card_type,power=excluded.power,toughness=excluded.toughness,scryfall_id=excluded.scryfall_id",
+            params![card.uuid, card.name, card.set_code, card.collector_number, card.rarity, card.oracle_text, card.mana_cost, card.card_type, card.power, card.toughness, card.scryfall_id])?;
+        tx.execute("DELETE FROM card_faces WHERE printing_id=?1", [&card.uuid])?;
+        let logical_faces = if card.faces.is_empty() {
+            vec![CatalogFace { face_order: 0, name: card.name.clone(), mana_cost: card.mana_cost.clone(), card_type: card.card_type.clone(), oracle_text: card.oracle_text.clone(), power: card.power.clone(), toughness: card.toughness.clone(), scryfall_id: card.scryfall_id.clone(), cached_path: None, image_status: "missing".into() }]
+        } else { card.faces.clone() };
+        for face in &logical_faces {
+            tx.execute("INSERT INTO card_faces(printing_id,face_order,name,mana_cost,card_type,oracle_text,power,toughness,scryfall_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)", params![card.uuid, face.face_order, face.name, face.mana_cost, face.card_type, face.oracle_text, face.power, face.toughness, face.scryfall_id])?;
+        }
     }
     tx.execute("INSERT INTO catalog_metadata(id,version,imported_at) VALUES (1,?1,datetime('now')) ON CONFLICT(id) DO UPDATE SET version=excluded.version, imported_at=excluded.imported_at", [version])?;
     tx.commit()?;
     Ok(())
 }
 
+pub fn clear_catalog(db: &Database) -> AppResult<i64> {
+    let tx = db.connection.unchecked_transaction()?;
+    tx.execute("DELETE FROM image_cache_entries WHERE printing_id IN (SELECT p.id FROM printings p WHERE NOT EXISTS (SELECT 1 FROM owned_cards o WHERE o.printing_id=p.id))", [])?;
+    tx.execute("DELETE FROM card_faces WHERE printing_id IN (SELECT p.id FROM printings p WHERE NOT EXISTS (SELECT 1 FROM owned_cards o WHERE o.printing_id=p.id))", [])?;
+    let deleted = tx.execute("DELETE FROM printings WHERE NOT EXISTS (SELECT 1 FROM owned_cards o WHERE o.printing_id=printings.id)", [])? as i64;
+    tx.execute("DELETE FROM catalog_metadata", [])?;
+    tx.commit()?;
+    Ok(deleted)
+}
+
 pub fn search_catalog(db: &Database, query: &str, limit: i64) -> AppResult<Vec<CatalogCard>> {
     let limit = limit.clamp(1, 100);
     let pattern = format!("%{}%", query.trim());
     let mut statement = db.connection.prepare(
-        "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,scryfall_id
+        "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id
          FROM printings
          WHERE name LIKE ?1 COLLATE NOCASE
             OR set_code LIKE ?1 COLLATE NOCASE
@@ -38,7 +55,8 @@ pub fn search_catalog(db: &Database, query: &str, limit: i64) -> AppResult<Vec<C
             oracle_text: row.get(5)?,
             mana_cost: row.get(6)?,
             card_type: row.get(7)?,
-            scryfall_id: row.get(8)?,
+            power: row.get(8)?, toughness: row.get(9)?, scryfall_id: row.get(10)?,
+            faces: Vec::new(),
         })
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
@@ -74,7 +92,7 @@ pub fn catalog_printing_exists(db: &Database, printing_id: &str) -> AppResult<bo
 pub fn find_catalog_card(db: &Database, printing_id: &str) -> AppResult<Option<CatalogCard>> {
     db.connection
         .query_row(
-            "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,scryfall_id
+            "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id
              FROM printings WHERE id=?1",
             [printing_id],
             |row| {
@@ -87,7 +105,8 @@ pub fn find_catalog_card(db: &Database, printing_id: &str) -> AppResult<Option<C
                     oracle_text: row.get(5)?,
                     mana_cost: row.get(6)?,
                     card_type: row.get(7)?,
-                    scryfall_id: row.get(8)?,
+                    power: row.get(8)?, toughness: row.get(9)?, scryfall_id: row.get(10)?,
+                    faces: Vec::new(),
                 })
             },
         )
@@ -108,11 +127,14 @@ pub fn list_owned(
         Option<String>,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Vec<CatalogFace>,
     )>,
 > {
     let mut statement = db.connection.prepare(
         "SELECT o.id,o.printing_id,o.quantity,o.language,o.foil,o.condition,o.notes,
-                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type,p.rarity,p.oracle_text,p.scryfall_id
+                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type,p.rarity,p.oracle_text,p.power,p.toughness,p.scryfall_id
          FROM owned_cards o JOIN printings p ON p.id=o.printing_id
          ORDER BY p.name COLLATE NOCASE",
     )?;
@@ -135,9 +157,11 @@ pub fn list_owned(
             row.get(12)?,
             row.get(13)?,
             row.get(14)?,
+            row.get(15)?, row.get(16)?,
         ))
     })?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    let rows = rows.collect::<Result<Vec<_>, _>>()?;
+    rows.into_iter().map(|row| { let faces = faces_for_printing(db, &row.0.printing_id)?; Ok((row.0,row.1,row.2,row.3,row.4,row.5,row.6,row.7,row.8,row.9,row.10,faces)) }).collect()
 }
 
 pub fn search_owned(
@@ -154,12 +178,15 @@ pub fn search_owned(
         Option<String>,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Vec<CatalogFace>,
     )>,
 > {
     let pattern = format!("%{}%", query.trim());
     let mut statement = db.connection.prepare(
         "SELECT o.id,o.printing_id,o.quantity,o.language,o.foil,o.condition,o.notes,
-                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type,p.rarity,p.oracle_text,p.scryfall_id
+                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type,p.rarity,p.oracle_text,p.power,p.toughness,p.scryfall_id
          FROM owned_cards o JOIN printings p ON p.id=o.printing_id
          WHERE p.name LIKE ?1 COLLATE NOCASE
             OR p.set_code LIKE ?1 COLLATE NOCASE
@@ -185,8 +212,16 @@ pub fn search_owned(
             row.get(12)?,
             row.get(13)?,
             row.get(14)?,
+            row.get(15)?, row.get(16)?,
         ))
     })?;
+    let rows = rows.collect::<Result<Vec<_>, _>>()?;
+    rows.into_iter().map(|row| { let faces = faces_for_printing(db, &row.0.printing_id)?; Ok((row.0,row.1,row.2,row.3,row.4,row.5,row.6,row.7,row.8,row.9,row.10,faces)) }).collect()
+}
+
+pub fn faces_for_printing(db: &Database, printing_id: &str) -> AppResult<Vec<CatalogFace>> {
+    let mut statement = db.connection.prepare("SELECT f.face_order,f.name,f.mana_cost,f.card_type,f.oracle_text,f.power,f.toughness,f.scryfall_id,i.cached_path,COALESCE(i.status,'missing') FROM card_faces f LEFT JOIN image_cache_entries i ON i.printing_id=f.printing_id AND i.face_order=f.face_order WHERE f.printing_id=?1 ORDER BY f.face_order")?;
+    let rows = statement.query_map([printing_id], |row| Ok(CatalogFace { face_order: row.get(0)?, name: row.get(1)?, mana_cost: row.get(2)?, card_type: row.get(3)?, oracle_text: row.get(4)?, power: row.get(5)?, toughness: row.get(6)?, scryfall_id: row.get(7)?, cached_path: row.get(8)?, image_status: row.get(9)? }))?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
@@ -274,6 +309,9 @@ mod catalog_tests {
                     oracle_text: None,
                     mana_cost: None,
                     card_type: None,
+                    power: None,
+                    toughness: None,
+                    faces: Vec::new(),
                     scryfall_id: None,
                 },
                 CatalogCard {
@@ -285,6 +323,9 @@ mod catalog_tests {
                     oracle_text: None,
                     mana_cost: None,
                     card_type: None,
+                    power: None,
+                    toughness: None,
+                    faces: Vec::new(),
                     scryfall_id: None,
                 },
             ],

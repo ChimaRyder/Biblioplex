@@ -7,7 +7,8 @@
   import Icon from "../ui/Icon.svelte";
   import { Input } from "$lib/components/ui/input";
 
-  type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; scryfall_id?: string };
+  type CardFace = { face_order: number; name: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; oracle_text?: string; image: { cached_path?: string; remote_url?: string; status: "cached" | "missing" | "stale" | "unavailable" } };
+  type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
   type CatalogCard = { uuid: string; name: string; set_code: string; collector_number: string; rarity?: string };
 
   let cards: Card[] = [];
@@ -24,6 +25,8 @@
   let selectedCard: Card | null = null;
   let viewerOpen = false;
   let imageFailed = false;
+  let activeFaceIndex = 0;
+  $: activeFace = selectedCard?.faces?.[activeFaceIndex] ?? selectedCard?.faces?.[0];
 
   $: displayedCards = cards.sort((a, b) => sortBy === "quantity" ? b.quantity - a.quantity : a.name.localeCompare(b.name));
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
@@ -36,7 +39,8 @@
   async function quickAdd(card: CatalogCard) { quickAdding = card.uuid; try { await invoke("add_owned_catalog_card", { request: { printing_id: card.uuid, quantity: 1, language: "en", foil: false, condition: "near_mint", notes: null } }); quickQuery = ""; quickResults = []; quickOpen = false; await loadCollection(); } catch (err) { error = String(err); } finally { quickAdding = ""; } }
   async function removeCard(id: string) { if (removing !== id) { removing = id; return; } try { await invoke("remove_owned_card", { id }); await loadCollection(); } catch (err) { error = String(err); } finally { removing = ""; } }
   function openQuickAdd() { quickOpen = true; quickQuery = ""; quickResults = []; }
-  function openViewer(card: Card) { selectedCard = card; imageFailed = false; viewerOpen = true; }
+  function openViewer(card: Card) { selectedCard = card; activeFaceIndex = 0; imageFailed = false; viewerOpen = true; }
+  function selectFace(index: number) { activeFaceIndex = index; imageFailed = false; }
   onMount(() => loadCollection(""));
 </script>
 
@@ -66,15 +70,16 @@
     <Dialog.Content class="fixed inset-y-0 right-0 left-auto z-50 flex h-full w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-y-auto rounded-none border-l border-[#3a4663] bg-panel-raised p-0 text-foreground shadow-2xl data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right" showCloseButton={false}>
       {#snippet children()}
         {#if selectedCard}
-          <div class="flex items-center justify-between border-b border-border px-5 py-4"><div><p class="text-[10px] font-bold tracking-[.16em] text-[#8b9bbd]">CARD DETAILS</p><div class="mt-1 flex items-center gap-3"><Dialog.Title class="font-serif text-xl">{selectedCard.name}</Dialog.Title>{#if manaTokens(selectedCard.mana_cost).length}<span class="mana-cell flex items-center text-lg" aria-label={`Mana cost: ${selectedCard.mana_cost}`}>{#each manaTokens(selectedCard.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-hidden="true"></i>{/each}</span>{/if}</div></div><Dialog.Close class="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-[#202d48] hover:text-foreground" aria-label="Close card details"><Icon name="x" size={16} /></Dialog.Close></div>
+          <div class="flex items-center justify-between border-b border-border px-5 py-3"><Dialog.Title class="text-[10px] font-bold tracking-[.16em] text-[#8b9bbd]">CARD DETAILS</Dialog.Title><Dialog.Close class="inline-flex size-6 items-center justify-center rounded-md text-red-400 transition hover:bg-red-400/10 hover:text-red-300" aria-label="Close card details"><Icon name="x" size={13} /></Dialog.Close></div>
           <div class="grid gap-6 p-5">
-            {#if selectedCard.scryfall_id && !imageFailed}
-              <div class="overflow-hidden rounded-xl border border-border bg-background"><img class="mx-auto block max-h-[520px] w-full object-contain" src={`https://cards.scryfall.io/normal/front/${selectedCard.scryfall_id.slice(0, 1)}/${selectedCard.scryfall_id.slice(1, 2)}/${selectedCard.scryfall_id}.jpg`} alt={`${selectedCard.name} card art`} loading="lazy" onerror={() => (imageFailed = true)} /></div>
-            {:else if selectedCard.scryfall_id}
-              <div class="grid min-h-40 place-items-center rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted">Image unavailable offline.<br />Local metadata is still available.</div>
-            {:else}<div class="grid min-h-40 place-items-center rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted">No Scryfall image is linked to this printing.<br />Card details remain available offline.</div>{/if}
-            <div><div class="flex flex-wrap items-center gap-2"><span class="rounded-full bg-[#202d48] px-2.5 py-1 text-xs font-semibold text-[#f7d889]">{selectedCard.set_code}</span><span class="text-xs text-muted">#{selectedCard.collector_number}</span>{#if selectedCard.rarity}<span class="text-xs capitalize text-muted">· {selectedCard.rarity}</span>{/if}</div><p class="mt-3 text-sm text-[#aab5ce]">{selectedCard.card_type || "Card"}</p></div>
-            {#if selectedCard.oracle_text}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-[#8b9bbd]">Rules text</h3><p class="whitespace-pre-wrap text-sm leading-relaxed text-[#c4cce0]">{selectedCard.oracle_text}</p></div>{/if}
+            {#if (activeFace?.image.cached_path || activeFace?.image.remote_url) && !imageFailed}
+              <div class="overflow-hidden rounded-xl border border-border bg-background"><img class="mx-auto block max-h-[520px] w-full object-contain" src={activeFace.image.cached_path || activeFace.image.remote_url} alt={`${activeFace.name} card art`} loading="lazy" onerror={() => (imageFailed = true)} /></div>
+            {:else}<div class="grid min-h-40 place-items-center rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted">{activeFace?.image.status === "stale" ? "Cached image is stale." : "Image unavailable offline."}<br />Local metadata is still available.</div>{/if}
+            {#if selectedCard.faces.length > 1}<div class="flex justify-center"><Button variant="outline" size="sm" aria-label={`Flip card to ${activeFaceIndex === 0 ? "back" : "front"}`} onclick={() => selectFace(activeFaceIndex === 0 ? 1 : 0)}>↔ {activeFaceIndex === 0 ? "Show back" : "Show front"}</Button></div>{/if}
+            <div class="flex items-center justify-between gap-4 border-b border-border pb-4"><Dialog.Title class="min-w-0 break-words font-serif text-2xl leading-tight">{activeFace?.name}</Dialog.Title>{#if manaTokens(activeFace?.mana_cost).length}<span class="mana-cell flex shrink-0 items-center text-lg" aria-label={`Mana cost: ${activeFace?.mana_cost}`}>{#each manaTokens(activeFace?.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-hidden="true"></i>{/each}</span>{/if}</div>
+            <div class="flex items-center justify-between gap-4"><p class="text-sm text-[#aab5ce]">{activeFace?.card_type || "Card"}</p>{#if activeFace?.card_type?.toLowerCase().includes("creature") && activeFace.power && activeFace.toughness}<span class="text-lg font-semibold text-foreground" aria-label={`Power ${activeFace.power}, toughness ${activeFace.toughness}`}>{activeFace.power}/{activeFace.toughness}</span>{/if}</div>
+            {#if activeFace?.oracle_text}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-[#8b9bbd]">Card text</h3><p class="whitespace-pre-wrap text-sm leading-relaxed text-[#c4cce0]">{activeFace.oracle_text}</p></div>{/if}
+            <div class="flex flex-wrap items-center gap-2 border-t border-border pt-4"><span class="rounded-full bg-[#202d48] px-2.5 py-1 text-xs font-semibold text-[#f7d889]">{selectedCard.set_code}</span><span class="text-xs text-muted">#{selectedCard.collector_number}</span>{#if selectedCard.rarity}<span class="text-xs capitalize text-muted">· {selectedCard.rarity}</span>{/if}</div>
             <div class="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm"><div><span class="block text-xs text-muted">Quantity</span><strong class="text-[#f7d889]">{selectedCard.quantity}</strong></div><div><span class="block text-xs text-muted">Condition</span><strong class="capitalize">{selectedCard.condition.replace("_", " ")}</strong></div><div><span class="block text-xs text-muted">Language</span><strong>{selectedCard.language.toUpperCase()}</strong></div><div><span class="block text-xs text-muted">Finish</span><strong>{selectedCard.foil ? "Foil" : "Non-foil"}</strong></div></div>
             {#if selectedCard.notes}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-[#8b9bbd]">Notes</h3><p class="text-sm leading-relaxed text-[#c4cce0]">{selectedCard.notes}</p></div>{/if}
           </div>
