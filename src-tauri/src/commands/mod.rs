@@ -17,6 +17,9 @@ pub struct OwnedCardView {
     pub foil: bool,
     pub condition: String,
     pub notes: Option<String>,
+    pub rarity: Option<String>,
+    pub oracle_text: Option<String>,
+    pub scryfall_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,7 +80,7 @@ pub fn list_owned_cards(state: State<'_, Mutex<Database>>) -> Result<Vec<OwnedCa
     services::list_owned(&db).map_err(db_error).map(|rows| {
         rows.into_iter()
             .map(
-                |(card, name, set_code, collector_number, mana_cost, card_type)| OwnedCardView {
+                |(card, name, set_code, collector_number, mana_cost, card_type, rarity, oracle_text, scryfall_id)| OwnedCardView {
                     id: card.id,
                     name,
                     set_code,
@@ -89,6 +92,7 @@ pub fn list_owned_cards(state: State<'_, Mutex<Database>>) -> Result<Vec<OwnedCa
                     foil: card.foil,
                     condition: card.condition,
                     notes: card.notes,
+                    rarity, oracle_text, scryfall_id,
                 },
             )
             .collect()
@@ -112,7 +116,7 @@ pub fn search_owned_cards(
     Ok(rows
         .into_iter()
         .map(
-            |(card, name, set_code, collector_number, mana_cost, card_type)| OwnedCardView {
+            |(card, name, set_code, collector_number, mana_cost, card_type, rarity, oracle_text, scryfall_id)| OwnedCardView {
                 id: card.id,
                 name,
                 set_code,
@@ -124,6 +128,7 @@ pub fn search_owned_cards(
                 foil: card.foil,
                 condition: card.condition,
                 notes: card.notes,
+                rarity, oracle_text, scryfall_id,
             },
         )
         .collect())
@@ -179,6 +184,9 @@ pub fn add_owned_card(
         foil: card.foil,
         condition: card.condition,
         notes: card.notes,
+        rarity: None,
+        oracle_text: None,
+        scryfall_id: None,
     })
 }
 
@@ -221,6 +229,9 @@ pub fn add_owned_catalog_card(
         foil: card.foil,
         condition: card.condition,
         notes: card.notes,
+        rarity: catalog.rarity,
+        oracle_text: catalog.oracle_text,
+        scryfall_id: catalog.scryfall_id,
     })
 }
 

@@ -7,7 +7,7 @@
   import Icon from "../ui/Icon.svelte";
   import { Input } from "$lib/components/ui/input";
 
-  type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string };
+  type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; scryfall_id?: string };
   type CatalogCard = { uuid: string; name: string; set_code: string; collector_number: string; rarity?: string };
 
   let cards: Card[] = [];
@@ -21,6 +21,9 @@
   let sortBy = "name";
   let removing = "";
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
+  let selectedCard: Card | null = null;
+  let viewerOpen = false;
+  let imageFailed = false;
 
   $: displayedCards = cards.sort((a, b) => sortBy === "quantity" ? b.quantity - a.quantity : a.name.localeCompare(b.name));
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
@@ -33,6 +36,7 @@
   async function quickAdd(card: CatalogCard) { quickAdding = card.uuid; try { await invoke("add_owned_catalog_card", { request: { printing_id: card.uuid, quantity: 1, language: "en", foil: false, condition: "near_mint", notes: null } }); quickQuery = ""; quickResults = []; quickOpen = false; await loadCollection(); } catch (err) { error = String(err); } finally { quickAdding = ""; } }
   async function removeCard(id: string) { if (removing !== id) { removing = id; return; } try { await invoke("remove_owned_card", { id }); await loadCollection(); } catch (err) { error = String(err); } finally { removing = ""; } }
   function openQuickAdd() { quickOpen = true; quickQuery = ""; quickResults = []; }
+  function openViewer(card: Card) { selectedCard = card; imageFailed = false; viewerOpen = true; }
   onMount(() => loadCollection(""));
 </script>
 
@@ -58,6 +62,27 @@
     </Dialog.Content>
   </Dialog.Root>
 
+  <Dialog.Root bind:open={viewerOpen}>
+    <Dialog.Content class="fixed inset-y-0 right-0 left-auto z-50 flex h-full w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-y-auto rounded-none border-l border-[#3a4663] bg-panel-raised p-0 text-foreground shadow-2xl data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right" showCloseButton={false}>
+      {#snippet children()}
+        {#if selectedCard}
+          <div class="flex items-center justify-between border-b border-border px-5 py-4"><div><p class="text-[10px] font-bold tracking-[.16em] text-[#8b9bbd]">CARD DETAILS</p><div class="mt-1 flex items-center gap-3"><Dialog.Title class="font-serif text-xl">{selectedCard.name}</Dialog.Title>{#if manaTokens(selectedCard.mana_cost).length}<span class="mana-cell flex items-center text-lg" aria-label={`Mana cost: ${selectedCard.mana_cost}`}>{#each manaTokens(selectedCard.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-hidden="true"></i>{/each}</span>{/if}</div></div><Dialog.Close class="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-[#202d48] hover:text-foreground" aria-label="Close card details"><Icon name="x" size={16} /></Dialog.Close></div>
+          <div class="grid gap-6 p-5">
+            {#if selectedCard.scryfall_id && !imageFailed}
+              <div class="overflow-hidden rounded-xl border border-border bg-background"><img class="mx-auto block max-h-[520px] w-full object-contain" src={`https://cards.scryfall.io/normal/front/${selectedCard.scryfall_id.slice(0, 1)}/${selectedCard.scryfall_id.slice(1, 2)}/${selectedCard.scryfall_id}.jpg`} alt={`${selectedCard.name} card art`} loading="lazy" onerror={() => (imageFailed = true)} /></div>
+            {:else if selectedCard.scryfall_id}
+              <div class="grid min-h-40 place-items-center rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted">Image unavailable offline.<br />Local metadata is still available.</div>
+            {:else}<div class="grid min-h-40 place-items-center rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted">No Scryfall image is linked to this printing.<br />Card details remain available offline.</div>{/if}
+            <div><div class="flex flex-wrap items-center gap-2"><span class="rounded-full bg-[#202d48] px-2.5 py-1 text-xs font-semibold text-[#f7d889]">{selectedCard.set_code}</span><span class="text-xs text-muted">#{selectedCard.collector_number}</span>{#if selectedCard.rarity}<span class="text-xs capitalize text-muted">· {selectedCard.rarity}</span>{/if}</div><p class="mt-3 text-sm text-[#aab5ce]">{selectedCard.card_type || "Card"}</p></div>
+            {#if selectedCard.oracle_text}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-[#8b9bbd]">Rules text</h3><p class="whitespace-pre-wrap text-sm leading-relaxed text-[#c4cce0]">{selectedCard.oracle_text}</p></div>{/if}
+            <div class="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm"><div><span class="block text-xs text-muted">Quantity</span><strong class="text-[#f7d889]">{selectedCard.quantity}</strong></div><div><span class="block text-xs text-muted">Condition</span><strong class="capitalize">{selectedCard.condition.replace("_", " ")}</strong></div><div><span class="block text-xs text-muted">Language</span><strong>{selectedCard.language.toUpperCase()}</strong></div><div><span class="block text-xs text-muted">Finish</span><strong>{selectedCard.foil ? "Foil" : "Non-foil"}</strong></div></div>
+            {#if selectedCard.notes}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-[#8b9bbd]">Notes</h3><p class="text-sm leading-relaxed text-[#c4cce0]">{selectedCard.notes}</p></div>{/if}
+          </div>
+        {/if}
+      {/snippet}
+    </Dialog.Content>
+  </Dialog.Root>
+
   {#if error}<p class="mt-4 text-sm text-red-300" role="alert">{error}</p>{/if}
-  {#if loading}<p class="text-sm text-muted">Loading local collection…</p>{:else if displayedCards.length === 0}<div class="grid justify-items-center gap-2 py-12 text-center text-muted"><Icon name="grid" size={28} /><p class="font-semibold text-foreground">{collectionQuery ? "No owned cards match your search." : "Your collection is empty."}</p><small>{collectionQuery ? "Try a different search." : "Use the + button to add your first card."}</small></div>{:else}<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-[11px] uppercase tracking-wide text-muted"><tr class="border-b border-border"><th class="p-3">Qty</th><th class="p-3">Card name</th><th class="p-3">Mana cost</th><th class="p-3">Type</th><th class="p-3">Printing</th><th class="p-3"><span class="sr-only">Actions</span></th></tr></thead><tbody>{#each displayedCards as card (card.id)}<tr class="border-b border-border text-[#aab5ce]"><td class="p-3 font-bold text-[#f7d889]">{card.quantity}</td><td class="p-3"><strong class="text-foreground">{card.name}</strong>{#if card.foil}<span class="ml-2 text-[10px] font-bold text-[#d6ae58]">FOIL</span>{/if}<small class="mt-1 block text-[11px] text-[#71809f] md:hidden">{card.condition} · {card.language}</small></td><td class="mana-cell p-3">{#if manaTokens(card.mana_cost).length}{#each manaTokens(card.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-label={token}></i>{/each}{:else}—{/if}</td><td class="p-3">{card.card_type || "—"}</td><td class="p-3">{card.set_code} · {card.collector_number || "—"}</td><td class="p-3"><Button variant="destructive" size="sm" aria-label={removing === card.id ? `Confirm removal of ${card.name}` : `Remove ${card.name}`} onclick={() => removeCard(card.id)}><Icon name={removing === card.id ? "x" : "trash"} size={14} />{removing === card.id ? "Confirm" : "Remove"}</Button></td></tr>{/each}</tbody></table></div>{/if}
+  {#if loading}<p class="text-sm text-muted">Loading local collection…</p>{:else if displayedCards.length === 0}<div class="grid justify-items-center gap-2 py-12 text-center text-muted"><Icon name="grid" size={28} /><p class="font-semibold text-foreground">{collectionQuery ? "No owned cards match your search." : "Your collection is empty."}</p><small>{collectionQuery ? "Try a different search." : "Use the + button to add your first card."}</small></div>{:else}<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-[11px] uppercase tracking-wide text-muted"><tr class="border-b border-border"><th class="p-3">Qty</th><th class="p-3">Card name</th><th class="p-3">Mana cost</th><th class="p-3">Type</th><th class="p-3">Printing</th><th class="p-3"><span class="sr-only">Actions</span></th></tr></thead><tbody>{#each displayedCards as card (card.id)}<tr class="cursor-pointer border-b border-border text-[#aab5ce] transition hover:bg-[#18233d]" tabindex="0" role="button" aria-label={`View details for ${card.name}`} onclick={() => openViewer(card)} onkeydown={(event) => (event.key === "Enter" || event.key === " ") && openViewer(card)}><td class="p-3 font-bold text-[#f7d889]">{card.quantity}</td><td class="p-3"><strong class="text-foreground">{card.name}</strong>{#if card.foil}<span class="ml-2 text-[10px] font-bold text-[#d6ae58]">FOIL</span>{/if}<small class="mt-1 block text-[11px] text-[#71809f] md:hidden">{card.condition} · {card.language}</small></td><td class="mana-cell p-3">{#if manaTokens(card.mana_cost).length}{#each manaTokens(card.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-label={token}></i>{/each}{:else}—{/if}</td><td class="p-3">{card.card_type || "—"}</td><td class="p-3">{card.set_code} · {card.collector_number || "—"}</td><td class="p-3"><Button variant="destructive" size="sm" aria-label={removing === card.id ? `Confirm removal of ${card.name}` : `Remove ${card.name}`} onclick={(event) => { event.stopPropagation(); removeCard(card.id); }}><Icon name={removing === card.id ? "x" : "trash"} size={14} />{removing === card.id ? "Confirm" : "Remove"}</Button></td></tr>{/each}</tbody></table></div>{/if}
 </section>

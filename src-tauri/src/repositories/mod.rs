@@ -105,11 +105,14 @@ pub fn list_owned(
         String,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
     )>,
 > {
     let mut statement = db.connection.prepare(
         "SELECT o.id,o.printing_id,o.quantity,o.language,o.foil,o.condition,o.notes,
-                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type
+                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type,p.rarity,p.oracle_text,p.scryfall_id
          FROM owned_cards o JOIN printings p ON p.id=o.printing_id
          ORDER BY p.name COLLATE NOCASE",
     )?;
@@ -129,6 +132,9 @@ pub fn list_owned(
             row.get(9)?,
             row.get(10)?,
             row.get(11)?,
+            row.get(12)?,
+            row.get(13)?,
+            row.get(14)?,
         ))
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
@@ -145,12 +151,15 @@ pub fn search_owned(
         String,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
     )>,
 > {
     let pattern = format!("%{}%", query.trim());
     let mut statement = db.connection.prepare(
         "SELECT o.id,o.printing_id,o.quantity,o.language,o.foil,o.condition,o.notes,
-                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type
+                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type,p.rarity,p.oracle_text,p.scryfall_id
          FROM owned_cards o JOIN printings p ON p.id=o.printing_id
          WHERE p.name LIKE ?1 COLLATE NOCASE
             OR p.set_code LIKE ?1 COLLATE NOCASE
@@ -173,6 +182,9 @@ pub fn search_owned(
             row.get(9)?,
             row.get(10)?,
             row.get(11)?,
+            row.get(12)?,
+            row.get(13)?,
+            row.get(14)?,
         ))
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)

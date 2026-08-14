@@ -45,6 +45,9 @@ pub fn list_owned(
         String,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
     )>,
 > {
     repositories::list_owned(db)
@@ -59,6 +62,9 @@ pub fn search_owned(
         String,
         String,
         String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
         Option<String>,
         Option<String>,
     )>,
