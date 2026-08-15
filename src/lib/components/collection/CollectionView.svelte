@@ -6,6 +6,8 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import Icon from "../ui/Icon.svelte";
   import { Input } from "$lib/components/ui/input";
+  import Textarea from "$lib/components/ui/textarea/textarea.svelte";
+  import * as Select from "$lib/components/ui/select";
 
   type CardFace = { face_order: number; name: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; oracle_text?: string; image: { cached_path?: string; remote_url?: string; status: "cached" | "missing" | "stale" | "unavailable" } };
   type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
@@ -25,6 +27,14 @@
   let selectedCard: Card | null = null;
   let viewerOpen = false;
   let imageFailed = false;
+  let editOpen = false;
+  let editingCard: Card | null = null;
+  let editQuantity = 1;
+  let editLanguage = "en";
+  let editFoil = "false";
+  let editCondition = "near_mint";
+  let editNotes = "";
+  let savingEdit = false;
   let activeFaceIndex = 0;
   $: activeFace = selectedCard?.faces?.[activeFaceIndex] ?? selectedCard?.faces?.[0];
 
@@ -38,6 +48,8 @@
   async function searchQuickAdd(value = quickQuery) { quickQuery = value; if (!quickQuery.trim()) { quickResults = []; return; } try { quickResults = await invoke<CatalogCard[]>("catalog_search", { request: { query: quickQuery, limit: 8 } }); } catch (err) { error = String(err); } }
   async function quickAdd(card: CatalogCard) { quickAdding = card.uuid; try { await invoke("add_owned_catalog_card", { request: { printing_id: card.uuid, quantity: 1, language: "en", foil: false, condition: "near_mint", notes: null } }); quickQuery = ""; quickResults = []; quickOpen = false; await loadCollection(); } catch (err) { error = String(err); } finally { quickAdding = ""; } }
   async function removeCard(id: string) { if (removing !== id) { removing = id; return; } try { await invoke("remove_owned_card", { id }); await loadCollection(); } catch (err) { error = String(err); } finally { removing = ""; } }
+  function openEdit(card: Card) { editingCard = card; editQuantity = card.quantity; editLanguage = card.language; editFoil = String(card.foil); editCondition = card.condition; editNotes = card.notes ?? ""; editOpen = true; }
+  async function saveEdit() { if (!editingCard || editQuantity < 1) return; savingEdit = true; try { await invoke("update_owned_card", { request: { id: editingCard.id, quantity: editQuantity, language: editLanguage, foil: editFoil === "true", condition: editCondition, notes: editNotes || null } }); editOpen = false; await loadCollection(); } catch (err) { error = String(err); } finally { savingEdit = false; } }
   function openQuickAdd() { quickOpen = true; quickQuery = ""; quickResults = []; }
   function openViewer(card: Card) { selectedCard = card; activeFaceIndex = 0; imageFailed = false; viewerOpen = true; }
   function selectFace(index: number) { activeFaceIndex = index; imageFailed = false; }
@@ -88,6 +100,35 @@
     </Dialog.Content>
   </Dialog.Root>
 
+  <Dialog.Root bind:open={editOpen}>
+    <Dialog.Content class="border-[#3a4663] bg-panel-raised text-foreground sm:max-w-lg" showCloseButton={false}>
+      {#snippet children()}
+      <Dialog.Header>
+        <Dialog.Title>Edit {editingCard?.name}</Dialog.Title>
+        <Dialog.Description>Update collection details. Card metadata cannot be changed here.</Dialog.Description>
+      </Dialog.Header>
+      <div class="grid gap-4 py-2">
+        <label>Quantity<Input type="number" min="1" bind:value={editQuantity} /></label>
+        <label>Language<Select.Root type="single" bind:value={editLanguage}>
+          <Select.Trigger class="w-full">{editLanguage === "en" ? "English" : editLanguage === "ja" ? "Japanese" : editLanguage === "de" ? "German" : editLanguage === "fr" ? "French" : "Spanish"}</Select.Trigger>
+          <Select.Content>
+            {#each [{ value: "en", label: "English" }, { value: "ja", label: "Japanese" }, { value: "de", label: "German" }, { value: "fr", label: "French" }, { value: "es", label: "Spanish" }] as option}
+            <Select.Item value={option.value} label={option.label}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </label>
+      <label>Finish<Select.Root type="single" bind:value={editFoil}><Select.Trigger class="w-full">{editFoil === "true" ? "Foil" : "Non-foil"}</Select.Trigger><Select.Content><Select.Item value="false" label="Non-foil">Non-foil</Select.Item><Select.Item value="true" label="Foil">Foil</Select.Item></Select.Content></Select.Root></label>
+      <label>Condition<Select.Root type="single" bind:value={editCondition}><Select.Trigger class="w-full">{editCondition.replace("_", " ")}</Select.Trigger><Select.Content>{#each [{ value: "near_mint", label: "Near mint" }, { value: "lightly_played", label: "Lightly played" }, { value: "moderately_played", label: "Moderately played" }, { value: "heavily_played", label: "Heavily played" }, { value: "damaged", label: "Damaged" }] as option}<Select.Item value={option.value} label={option.label}>{option.label}</Select.Item>{/each}</Select.Content></Select.Root></label>
+      <label>Notes<Textarea bind:value={editNotes} rows="3" /></label>
+      </div>
+      <Dialog.Footer>
+        <Dialog.Close>Cancel</Dialog.Close>
+        <Button onclick={saveEdit} disabled={savingEdit || editQuantity < 1}>{savingEdit ? "Saving…" : "Save changes"}</Button>
+      </Dialog.Footer>
+      {/snippet}
+    </Dialog.Content>
+  </Dialog.Root>
   {#if error}<p class="mt-4 text-sm text-red-300" role="alert">{error}</p>{/if}
-  {#if loading}<p class="text-sm text-muted">Loading local collection…</p>{:else if displayedCards.length === 0}<div class="grid justify-items-center gap-2 py-12 text-center text-muted"><Icon name="grid" size={28} /><p class="font-semibold text-foreground">{collectionQuery ? "No owned cards match your search." : "Your collection is empty."}</p><small>{collectionQuery ? "Try a different search." : "Use the + button to add your first card."}</small></div>{:else}<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-[11px] uppercase tracking-wide text-muted"><tr class="border-b border-border"><th class="p-3">Qty</th><th class="p-3">Card name</th><th class="p-3">Mana cost</th><th class="p-3">Type</th><th class="p-3">Printing</th><th class="p-3"><span class="sr-only">Actions</span></th></tr></thead><tbody>{#each displayedCards as card (card.id)}<tr class="cursor-pointer border-b border-border text-[#aab5ce] transition hover:bg-[#18233d]" tabindex="0" role="button" aria-label={`View details for ${card.name}`} onclick={() => openViewer(card)} onkeydown={(event) => (event.key === "Enter" || event.key === " ") && openViewer(card)}><td class="p-3 font-bold text-[#f7d889]">{card.quantity}</td><td class="p-3"><strong class="text-foreground">{card.name}</strong>{#if card.foil}<span class="ml-2 text-[10px] font-bold text-[#d6ae58]">FOIL</span>{/if}<small class="mt-1 block text-[11px] text-[#71809f] md:hidden">{card.condition} · {card.language}</small></td><td class="mana-cell p-3">{#if manaTokens(card.mana_cost).length}{#each manaTokens(card.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-label={token}></i>{/each}{:else}—{/if}</td><td class="p-3">{card.card_type || "—"}</td><td class="p-3">{card.set_code} · {card.collector_number || "—"}</td><td class="p-3"><Button variant="destructive" size="sm" aria-label={removing === card.id ? `Confirm removal of ${card.name}` : `Remove ${card.name}`} onclick={(event) => { event.stopPropagation(); removeCard(card.id); }}><Icon name={removing === card.id ? "x" : "trash"} size={14} />{removing === card.id ? "Confirm" : "Remove"}</Button></td></tr>{/each}</tbody></table></div>{/if}
+  {#if loading}<p class="text-sm text-muted">Loading local collection…</p>{:else if displayedCards.length === 0}<div class="grid justify-items-center gap-2 py-12 text-center text-muted"><Icon name="grid" size={28} /><p class="font-semibold text-foreground">{collectionQuery ? "No owned cards match your search." : "Your collection is empty."}</p><small>{collectionQuery ? "Try a different search." : "Use the + button to add your first card."}</small></div>{:else}<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-[11px] uppercase tracking-wide text-muted"><tr class="border-b border-border"><th class="p-3">Qty</th><th class="p-3">Card name</th><th class="p-3">Mana cost</th><th class="p-3">Type</th><th class="p-3">Printing</th><th class="p-3"><span class="sr-only">Actions</span></th></tr></thead><tbody>{#each displayedCards as card (card.id)}<tr class="cursor-pointer border-b border-border text-[#aab5ce] transition hover:bg-[#18233d]" tabindex="0" role="button" aria-label={`View details for ${card.name}`} onclick={() => openViewer(card)} onkeydown={(event) => (event.key === "Enter" || event.key === " ") && openViewer(card)}><td class="p-3 font-bold text-[#f7d889]">{card.quantity}</td><td class="p-3"><strong class="text-foreground">{card.name}</strong>{#if card.foil}<span class="ml-2 text-[10px] font-bold text-[#d6ae58]">FOIL</span>{/if}<small class="mt-1 block text-[11px] text-[#71809f] md:hidden">{card.condition} · {card.language}</small></td><td class="mana-cell p-3">{#if manaTokens(card.mana_cost).length}{#each manaTokens(card.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-label={token}></i>{/each}{:else}—{/if}</td><td class="p-3">{card.card_type || "—"}</td><td class="p-3">{card.set_code} · {card.collector_number || "—"}</td><td class="p-3"><Button variant="ghost" size="icon" class="size-8" aria-label={`Edit `} title={`Edit `} onclick={(event) => { event.stopPropagation(); console.trace("test"); openEdit(card); }}><Icon name="pencil" size={15} /></Button><Button variant="destructive" size="sm" aria-label={removing === card.id ? `Confirm removal of ${card.name}` : `Remove ${card.name}`} onclick={(event) => { event.stopPropagation(); removeCard(card.id); }}><Icon name={removing === card.id ? "x" : "trash"} size={14} />{removing === card.id ? "Confirm" : ""}</Button></td></tr>{/each}</tbody></table></div>{/if}
 </section>

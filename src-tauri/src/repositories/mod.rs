@@ -235,6 +235,15 @@ pub fn delete_owned(db: &Database, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn update_owned(db: &Database, id: &str, quantity: i64, language: &str, foil: bool, condition: &str, notes: Option<&str>) -> AppResult<()> {
+    if quantity <= 0 { return Err(AppError::Validation("quantity must be positive".into())); }
+    let assigned: i64 = db.connection.query_row("SELECT COALESCE(quantity, 0) FROM assignments WHERE owned_card_id=?1", [id], |row| row.get(0)).unwrap_or(0);
+    if quantity < assigned { return Err(AppError::Validation(format!("quantity cannot be less than the {assigned} assigned card(s)"))); }
+    let changed = db.connection.execute("UPDATE owned_cards SET quantity=?2,language=?3,foil=?4,condition=?5,notes=?6 WHERE id=?1", params![id, quantity, language, foil as i64, condition, notes])?;
+    if changed == 0 { return Err(AppError::NotFound(id.into())); }
+    Ok(())
+}
+
 pub fn create_location(db: &Database, location: &Location) -> AppResult<()> {
     if location.name.trim().is_empty() {
         return Err(AppError::Validation("location name cannot be empty".into()));

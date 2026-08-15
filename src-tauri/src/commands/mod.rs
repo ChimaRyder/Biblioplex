@@ -99,6 +99,9 @@ pub struct AddCatalogCardRequest {
     pub notes: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateOwnedCardRequest { pub id: String, pub quantity: i64, pub language: String, pub foil: bool, pub condition: String, pub notes: Option<String> }
+
 fn db_error(error: AppError) -> String {
     error.to_string()
 }
@@ -283,6 +286,12 @@ pub fn remove_owned_card(state: State<'_, Mutex<Database>>, id: String) -> Resul
         .lock()
         .map_err(|_| "database lock poisoned".to_string())?;
     services::remove_owned_card(&db, &id).map_err(db_error)
+}
+
+#[tauri::command]
+pub fn update_owned_card(state: State<'_, Mutex<Database>>, request: UpdateOwnedCardRequest) -> Result<(), String> {
+    let db = state.lock().map_err(|_| "database lock poisoned".to_string())?;
+    services::update_owned_card(&db, &request.id, request.quantity, request.language.trim(), request.foil, request.condition.trim(), request.notes.as_deref().map(str::trim).filter(|value| !value.is_empty())).map_err(db_error)
 }
 
 #[tauri::command]

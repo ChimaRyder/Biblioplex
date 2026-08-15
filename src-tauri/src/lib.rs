@@ -30,6 +30,7 @@ pub fn run() {
             commands::add_owned_card,
             commands::add_owned_catalog_card,
             commands::remove_owned_card,
+            commands::update_owned_card,
             commands::catalog_import_mtgjson,
             commands::catalog_clear,
             commands::catalog_search
