@@ -33,7 +33,8 @@ pub fn run() {
             commands::update_owned_card,
             commands::catalog_import_mtgjson,
             commands::catalog_clear,
-            commands::catalog_search
+            commands::catalog_search,
+            commands::check_image_provider
         ])
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;

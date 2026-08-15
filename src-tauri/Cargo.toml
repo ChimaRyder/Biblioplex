@@ -19,6 +19,7 @@ tauri = { version = "2", features = [] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -107,6 +107,13 @@ fn db_error(error: AppError) -> String {
 }
 
 #[tauri::command]
+pub fn check_image_provider() -> Result<String, String> {
+    crate::integrations::scryfall::probe()
+        .map(|_| "stable".to_string())
+        .map_err(|_| "unavailable".to_string())
+}
+
+#[tauri::command]
 pub fn list_owned_cards(state: State<'_, Mutex<Database>>) -> Result<Vec<OwnedCardView>, String> {
     let db = state
         .lock()

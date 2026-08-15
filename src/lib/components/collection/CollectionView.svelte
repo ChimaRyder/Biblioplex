@@ -8,6 +8,7 @@
   import { Input } from "$lib/components/ui/input";
   import Textarea from "$lib/components/ui/textarea/textarea.svelte";
   import * as Select from "$lib/components/ui/select";
+  import { checkImageProvider, type ConnectionState } from "$lib/commands/connection";
 
   type CardFace = { face_order: number; name: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; oracle_text?: string; image: { cached_path?: string; remote_url?: string; status: "cached" | "missing" | "stale" | "unavailable" } };
   type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
@@ -36,7 +37,13 @@
   let editNotes = "";
   let savingEdit = false;
   let activeFaceIndex = 0;
+  let connectionState: ConnectionState = "unknown";
+  let previewCard: Card | null = null;
+  let previewPosition = { top: 0, left: 0 };
+  let previewTimer: ReturnType<typeof setTimeout> | undefined;
+  let previewImageFailed = false;
   $: activeFace = selectedCard?.faces?.[activeFaceIndex] ?? selectedCard?.faces?.[0];
+  $: previewFace = previewCard?.faces?.[0];
 
   $: displayedCards = cards.sort((a, b) => sortBy === "quantity" ? b.quantity - a.quantity : a.name.localeCompare(b.name));
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
@@ -53,7 +60,24 @@
   function openQuickAdd() { quickOpen = true; quickQuery = ""; quickResults = []; }
   function openViewer(card: Card) { selectedCard = card; activeFaceIndex = 0; imageFailed = false; viewerOpen = true; }
   function selectFace(index: number) { activeFaceIndex = index; imageFailed = false; }
-  onMount(() => loadCollection(""));
+  function clearPreview() { if (previewTimer) clearTimeout(previewTimer); previewTimer = undefined; previewCard = null; previewImageFailed = false; }
+  function schedulePreview(card: Card, event: PointerEvent, row?: HTMLElement) {
+    clearPreview();
+    if (connectionState !== "stable") return;
+    const rect = (row ?? event.currentTarget as HTMLElement).getBoundingClientRect();
+    previewPosition = { top: Math.max(12, Math.min(window.innerHeight - 420, rect.top)), left: Math.min(window.innerWidth - 280, rect.right + 12) };
+    previewTimer = setTimeout(() => { if (connectionState === "stable") previewCard = card; }, 700);
+  }
+  async function refreshConnection() { connectionState = "checking"; connectionState = await checkImageProvider(); if (connectionState !== "stable") clearPreview(); }
+  onMount(() => {
+    loadCollection(""); refreshConnection();
+    const onNetworkChange = () => refreshConnection();
+    const onPointerOver = (event: PointerEvent) => { const row = (event.target as HTMLElement).closest("tbody tr") as HTMLElement | null; if (!row || connectionState !== "stable") return; const rows = [...row.parentElement!.children]; const card = displayedCards[rows.indexOf(row)]; if (card) schedulePreview(card, event, row); };
+    const onPointerOut = (event: PointerEvent) => { const row = (event.target as HTMLElement).closest("tbody tr"); if (row && !(event.relatedTarget as Node | null)?.parentElement?.closest?.("tbody tr")) clearPreview(); };
+    document.addEventListener("pointerover", onPointerOver); document.addEventListener("pointerout", onPointerOut);
+    window.addEventListener("online", onNetworkChange); window.addEventListener("offline", onNetworkChange);
+    return () => { clearPreview(); document.removeEventListener("pointerover", onPointerOver); document.removeEventListener("pointerout", onPointerOut); window.removeEventListener("online", onNetworkChange); window.removeEventListener("offline", onNetworkChange); };
+  });
 </script>
 
 <section class="relative mt-8 rounded-2xl border border-border bg-panel p-7 max-sm:mt-5 max-sm:p-5">
@@ -129,6 +153,7 @@
       {/snippet}
     </Dialog.Content>
   </Dialog.Root>
+  {#if previewCard && previewFace}<div class="pointer-events-none fixed z-40 w-64 rounded-xl border border-[#52607d] bg-panel-raised p-2 shadow-2xl" style={`top:${previewPosition.top}px;left:${previewPosition.left}px`} aria-hidden="true">{#if (previewFace.image.cached_path || (connectionState === "stable" && previewFace.image.remote_url)) && !previewImageFailed}<img class="block max-h-[360px] w-full rounded-lg object-contain" src={previewFace.image.cached_path || previewFace.image.remote_url} alt="" loading="eager" onerror={() => { previewImageFailed = true; connectionState = "unavailable"; clearPreview(); }} />{:else}<div class="grid min-h-32 place-items-center rounded-lg border border-dashed border-border bg-background p-4 text-center text-xs text-muted">Image unavailable.</div>{/if}<p class="truncate px-1 pt-2 text-xs font-semibold text-foreground">{previewCard.name}</p><p class="px-1 pb-1 text-[11px] text-muted">{previewCard.set_code} · {previewCard.collector_number}</p></div>{/if}
   {#if error}<p class="mt-4 text-sm text-red-300" role="alert">{error}</p>{/if}
   {#if loading}<p class="text-sm text-muted">Loading local collection…</p>{:else if displayedCards.length === 0}<div class="grid justify-items-center gap-2 py-12 text-center text-muted"><Icon name="grid" size={28} /><p class="font-semibold text-foreground">{collectionQuery ? "No owned cards match your search." : "Your collection is empty."}</p><small>{collectionQuery ? "Try a different search." : "Use the + button to add your first card."}</small></div>{:else}<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-[11px] uppercase tracking-wide text-muted"><tr class="border-b border-border"><th class="p-3">Qty</th><th class="p-3">Card name</th><th class="p-3">Mana cost</th><th class="p-3">Type</th><th class="p-3">Printing</th><th class="p-3"><span class="sr-only">Actions</span></th></tr></thead><tbody>{#each displayedCards as card (card.id)}<tr class="cursor-pointer border-b border-border text-[#aab5ce] transition hover:bg-[#18233d]" tabindex="0" role="button" aria-label={`View details for ${card.name}`} onclick={() => openViewer(card)} onkeydown={(event) => (event.key === "Enter" || event.key === " ") && openViewer(card)}><td class="p-3 font-bold text-[#f7d889]">{card.quantity}</td><td class="p-3"><strong class="text-foreground">{card.name}</strong>{#if card.foil}<span class="ml-2 text-[10px] font-bold text-[#d6ae58]">FOIL</span>{/if}<small class="mt-1 block text-[11px] text-[#71809f] md:hidden">{card.condition} · {card.language}</small></td><td class="mana-cell p-3">{#if manaTokens(card.mana_cost).length}{#each manaTokens(card.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-label={token}></i>{/each}{:else}—{/if}</td><td class="p-3">{card.card_type || "—"}</td><td class="p-3">{card.set_code} · {card.collector_number || "—"}</td><td class="p-3"><Button variant="ghost" size="icon" class="size-8" aria-label={`Edit `} title={`Edit `} onclick={(event) => { event.stopPropagation(); console.trace("test"); openEdit(card); }}><Icon name="pencil" size={15} /></Button><Button variant="destructive" size="sm" aria-label={removing === card.id ? `Confirm removal of ${card.name}` : `Remove ${card.name}`} onclick={(event) => { event.stopPropagation(); removeCard(card.id); }}><Icon name={removing === card.id ? "x" : "trash"} size={14} />{removing === card.id ? "Confirm" : ""}</Button></td></tr>{/each}</tbody></table></div>{/if}
 </section>
