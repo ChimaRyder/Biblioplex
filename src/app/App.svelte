@@ -17,8 +17,7 @@
 <div class="min-h-screen bg-background">
   <Sidebar {page} {navigate} />
   <main class="ml-60 min-h-screen px-12 py-10 max-md:ml-20 max-md:px-6 max-sm:px-4">
-    <PageHeader title={pageTitles[page]} />
+    {#if page !== "collection"}<PageHeader title={pageTitles[page]} />{/if}
     {#if page === "collection"}<CollectionView />{:else if page === "settings"}<CatalogSettings />{:else}<FeaturePlaceholder kind={page} />{/if}
-    <footer class="mt-10 flex justify-between gap-4 text-xs text-[#647394]"><span>Biblioplex · SQLite local storage</span><span>Account-free by design</span></footer>
   </main>
 </div>

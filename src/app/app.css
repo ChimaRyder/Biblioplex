@@ -1,25 +1,57 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0b1020;
-  --color-foreground: #e5e7eb;
-  --color-panel: #11182b;
-  --color-panel-raised: #18223a;
-  --color-popover: #18223a;
-  --color-popover-foreground: #e5e7eb;
-  --color-border: #222d47;
-  --color-muted: #7f8dac;
-  --color-gold: #d6ae58;
+  --color-background: #16130f;
+  --color-foreground: #e9e1da;
+  --color-panel: #221f1b;
+  --color-panel-raised: #2d2925;
+  --color-popover: #2d2925;
+  --color-popover-foreground: #e9e1da;
+  --color-border: #38342f;
+  --color-input: #38342f;
+  --color-muted: #998f81;
+  --color-gold: #e4c285;
+  --color-primary: #e4c285;
+  --color-primary-foreground: #412d00;
+  --color-secondary: #c6c6c7;
+  --color-secondary-foreground: #2f3131;
+  --color-muted-foreground: #d0c5b5;
+  --color-accent: #38342f;
+  --color-accent-foreground: #e9e1da;
+  --color-ring: #e4c285;
+  --color-destructive: #ffb4ab;
+  --color-destructive-foreground: #690005;
+  --color-error: #ffb4ab;
+  --color-mana-blue: #bcdaf7;
+  --color-mana-red: #f19b79;
+  --color-mana-green: #9fcba6;
+  --color-mana-black: #a7999e;
+  --color-mana-white: #fdfbce;
+  --color-mana-colorless: #d0c6bb;
+  --color-status-synced: #2dd4bf;
+  --color-status-offline: #f59e0b;
 }
 
-:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #e5e7eb; background: #0b1020; font-synthesis: none; text-rendering: optimizeLegibility; }
+:root { font-family: Geist, ui-sans-serif, system-ui, sans-serif; color: #e9e1da; background: #16130f; font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
-body { min-width: 320px; margin: 0; background: #0b1020; }
+body { min-width: 320px; margin: 0; background: #16130f; }
 button, input, select { font: inherit; }
 button:disabled { cursor: not-allowed; }
+[data-slot="table-row"], [data-slot="table-header"] tr { border-color: var(--color-border); }
 
 @font-face { font-family: "Mana"; src: url("/fonts/mana.woff2") format("woff2"); font-weight: normal; font-style: normal; }
-.ms { display: inline-block; margin-right: 3px; font: normal normal normal 1em Mana; line-height: 1em; vertical-align: middle; -webkit-font-smoothing: antialiased; }
+.ms { display: inline-flex; width: 1.10em; height: 1.10em; align-items: center; justify-content: center; margin-right: 3px; border-radius: 9999px; color: #16130f; font: normal normal normal 1em Mana; line-height: 1em; vertical-align: middle; -webkit-font-smoothing: antialiased; }
 .mana-cell .ms:last-child { margin-right: 0; }
-.mana-cell .ms-w { color: #f5edc8; text-shadow: 0 0 1px #9c9270; }.mana-cell .ms-u { color: #9ec8ed; }.mana-cell .ms-b { color: #9b8d95; }.mana-cell .ms-r { color: #e88768; }.mana-cell .ms-g { color: #8fbe9a; }.mana-cell .ms-c, .mana-cell .ms-x, .mana-cell .ms-y, .mana-cell .ms-z { color: #c8c0b5; }
+.mana-cell .ms-w { background-color: var(--color-mana-white); }.mana-cell .ms-u { background-color: var(--color-mana-blue); }.mana-cell .ms-b { background-color: var(--color-mana-black); }.mana-cell .ms-r { background-color: var(--color-mana-red); }.mana-cell .ms-g { background-color: var(--color-mana-green); }.mana-cell .ms-c, .mana-cell .ms-x, .mana-cell .ms-y, .mana-cell .ms-z, .ms-0, .ms-1, .ms-2, .ms-3, .ms-4, .ms-5, .ms-6, .ms-7, .ms-8, .ms-9 { background-color: var(--color-mana-colorless); }
 .ms-w::before{content:"\e600"}.ms-u::before{content:"\e601"}.ms-b::before{content:"\e602"}.ms-r::before{content:"\e603"}.ms-g::before{content:"\e604"}.ms-0::before{content:"\e605"}.ms-1::before{content:"\e606"}.ms-2::before{content:"\e607"}.ms-3::before{content:"\e608"}.ms-4::before{content:"\e609"}.ms-5::before{content:"\e60a"}.ms-6::before{content:"\e60b"}.ms-7::before{content:"\e60c"}.ms-8::before{content:"\e60d"}.ms-9::before{content:"\e60e"}.ms-x::before{content:"\e615"}.ms-y::before{content:"\e616"}.ms-z::before{content:"\e617"}.ms-c::before{content:"\e904"}.ms-wu::before{content:"\e6a9"}.ms-ub::before{content:"\e6ab"}.ms-br::before{content:"\e6ad"}.ms-rg::before{content:"\e6b0"}.ms-gw::before{content:"\e6b1"}.ms-gu::before{content:"\e6b2"}
+
+/* Legacy feature classes are retained for layout compatibility while their
+   rendered colors resolve to the Aether Vault design tokens. */
+.text-\[\#8b9bbd\], .text-\[\#aab5ce\], .text-\[\#c4cce0\], .text-\[\#71809f\], .text-\[\#647394\] { color: var(--color-muted-foreground); }
+.text-\[\#f7d889\], .text-\[\#d6ae58\], .text-\[\#f7c873\] { color: var(--color-primary); }
+.bg-\[\#202d48\] { background-color: var(--color-accent); }
+.border-\[\#52607d\], .border-\[\#303d5d\], .border-\[\#3a4663\], .border-\[\#3b3a4a\] { border-color: var(--color-border); }
+.placeholder\:text-\[\#647394\]::placeholder { color: var(--color-muted); }
+.text-red-400 { color: var(--color-destructive); }
+.hover\:text-red-300:hover { color: var(--color-error); }
+.hover\:bg-red-400\/10:hover { background-color: color-mix(in srgb, var(--color-destructive) 10%, transparent); }
