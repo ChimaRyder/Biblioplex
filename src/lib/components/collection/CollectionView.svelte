@@ -93,7 +93,7 @@
 </script>
 
 <div class="mb-8 flex items-end gap-3 max-lg:flex-wrap">
-  <div class="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-md border border-[#52607d] bg-background px-3 transition focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/20 lg:mr-12"><Icon name="search" size={17} /><Input class="h-9! border-0! bg-transparent! shadow-none! outline-none! ring-0! focus:border-transparent! focus:ring-0! focus-visible:border-transparent! focus-visible:ring-0!" bind:value={collectionQuery} placeholder="Search your collection…" aria-label="Search your collection" oninput={searchAsYouType} onkeydown={(event) => event.key === "Enter" && loadCollection()} /></div>
+  <div class="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-md border border-[#52607d] bg-background px-3 transition focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/20 lg:mr-12"><Icon name="search" size={17} /><Input class="h-9! border-0! bg-transparent! shadow-none! outline-none! ring-0! focus:border-transparent! focus:ring-0! focus-visible:border-transparent! focus-visible:ring-0!" bind:value={collectionQuery} placeholder="Search your collection…" aria-label="Search your collection" oninput={searchAsYouType} onkeydown={(event : KeyboardEvent)=> event.key === "Enter" && loadCollection()} /></div>
   <div class="ml-auto flex items-end gap-3 max-lg:ml-0">
     <div class="flex h-10 items-center rounded-md border border-[#303d5d] bg-background p-1" aria-label="Collection view">
       <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" class="size-8" aria-label="List View" title="List View" aria-pressed={viewMode === "list"} onclick={() => viewMode = "list"}><Icon name="list" size={17} /></Button>
@@ -202,7 +202,7 @@
               role="button"
               aria-label={`View details for ${card.name}`}
               onclick={() => openViewer(card)}
-              onkeydown={(event) => (event.key === "Enter" || event.key === " ") && openViewer(card)}
+              onkeydown={(event: KeyboardEvent) => (event.key === "Enter" || event.key === " ") && openViewer(card)}
             >
               <Table.Cell class="font-bold text-[#f7d889]">{card.quantity} x</Table.Cell>
               <Table.Cell>
@@ -218,10 +218,10 @@
               <Table.Cell>{card.card_type || "—"}</Table.Cell>
               <Table.Cell>{card.set_code} · {card.collector_number || "—"}</Table.Cell>
               <Table.Cell>
-                <Button variant="ghost" size="icon" class="size-8" aria-label={`Edit ${card.name}`} title={`Edit ${card.name}`} onclick={(event) => { event.stopPropagation(); openEdit(card); }}>
+                <Button variant="ghost" size="icon" class="size-8" aria-label={`Edit ${card.name}`} title={`Edit ${card.name}`} onclick={(event: MouseEvent) => { event.stopPropagation(); openEdit(card); }}>
                   <Icon name="pencil" size={15} />
                 </Button>
-                <Button variant="destructive" size="sm" aria-label={removing === card.id ? `Confirm removal of ${card.name}` : `Remove ${card.name}`} onclick={(event) => { event.stopPropagation(); removeCard(card.id); }}>
+                <Button variant="destructive" size="sm" aria-label={removing === card.id ? `Confirm removal of ${card.name}` : `Remove ${card.name}`} onclick={(event: MouseEvent) => { event.stopPropagation(); removeCard(card.id); }}>
                   <Icon name={removing === card.id ? "x" : "trash"} size={14} />{removing === card.id ? "Confirm" : ""}
                 </Button>
               </Table.Cell>
