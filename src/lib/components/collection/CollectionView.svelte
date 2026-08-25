@@ -56,6 +56,7 @@
   $: previewFace = previewCard?.faces?.[0];
 
   $: displayedCards = cards.sort((a, b) => sortBy === "quantity" ? b.quantity - a.quantity : a.name.localeCompare(b.name));
+  $: totalCardQuantity = displayedCards.reduce((total, card) => total + card.quantity, 0);
   $: if (viewMode === "grid") clearPreview();
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
   async function loadCollection(query = collectionQuery) { loading = true; try { cards = await invoke<Card[]>("search_owned_cards", { request: { query } }); selectedCardIds = new Set([...selectedCardIds].filter((id) => cards.some((card) => card.id === id))); error = ""; } catch (err) { error = String(err); } finally { loading = false; } }
@@ -142,7 +143,7 @@
 </div>
 
 <section class="relative rounded-2xl border border-border bg-panel p-7 max-sm:p-5">
-  <div class="mb-5 flex items-center gap-3"><h2 class="text-2xl tracking-tight">All Cards</h2><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-foreground" aria-label={`${displayedCards.length} cards`}>{displayedCards.length}</span></div>
+  <div class="mb-5 flex items-center gap-3"><h2 class="text-2xl tracking-tight">All Cards</h2><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-foreground" aria-label={`${totalCardQuantity} cards`}>{totalCardQuantity}</span></div>
   {#if selectedCardIds.size > 0}
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#806c3e] bg-[#2a2418] px-4 py-3" role="status" aria-live="polite">
       <span class="text-sm font-medium text-[#f7d889]">{selectedCardIds.size} {selectedCardIds.size === 1 ? "card" : "cards"} selected</span>
@@ -256,7 +257,7 @@
               onclick={() => openViewer(card)}
               onkeydown={(event: KeyboardEvent) => (event.key === "Enter" || event.key === " ") && openViewer(card)}
             >
-              <Table.Cell class="w-10">
+              <Table.Cell class="w-8">
                 <Checkbox checked={selectedCardIds.has(card.id)} aria-label={`Select ${card.name}`} class={`${selectedCardIds.size === 0 ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`} onclick={(event: MouseEvent) => event.stopPropagation()} onCheckedChange={() => toggleCardSelection(card.id)} />
               </Table.Cell>
               <Table.Cell>
