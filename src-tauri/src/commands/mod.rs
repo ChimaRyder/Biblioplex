@@ -305,6 +305,17 @@ pub fn remove_owned_card(state: State<'_, Mutex<Database>>, id: String) -> Resul
 }
 
 #[tauri::command]
+pub fn remove_owned_cards(state: State<'_, Mutex<Database>>, ids: Vec<String>) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let db = state
+        .lock()
+        .map_err(|_| "database lock poisoned".to_string())?;
+    services::remove_owned_cards(&db, &ids).map_err(db_error)
+}
+
+#[tauri::command]
 pub fn update_owned_card(state: State<'_, Mutex<Database>>, request: UpdateOwnedCardRequest) -> Result<(), String> {
     let db = state.lock().map_err(|_| "database lock poisoned".to_string())?;
     services::update_owned_card(&db, &request.id, request.quantity, request.language.trim(), request.foil, request.condition.trim(), request.notes.as_deref().map(str::trim).filter(|value| !value.is_empty())).map_err(db_error)

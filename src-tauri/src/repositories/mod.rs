@@ -247,6 +247,15 @@ pub fn delete_owned(db: &Database, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn delete_owned_many(db: &Database, ids: &[String]) -> AppResult<()> {
+    let tx = db.connection.unchecked_transaction()?;
+    for id in ids {
+        tx.execute("DELETE FROM owned_cards WHERE id=?1", [id])?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 pub fn update_owned(db: &Database, id: &str, quantity: i64, language: &str, foil: bool, condition: &str, notes: Option<&str>) -> AppResult<()> {
     if quantity <= 0 { return Err(AppError::Validation("quantity must be positive".into())); }
     let assigned: i64 = db.connection.query_row("SELECT COALESCE(quantity, 0) FROM assignments WHERE owned_card_id=?1", [id], |row| row.get(0)).unwrap_or(0);

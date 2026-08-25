@@ -85,6 +85,9 @@ pub fn search_owned(
 pub fn remove_owned_card(db: &Database, id: &str) -> AppResult<()> {
     repositories::delete_owned(db, id)
 }
+pub fn remove_owned_cards(db: &Database, ids: &[String]) -> AppResult<()> {
+    repositories::delete_owned_many(db, ids)
+}
 pub fn update_owned_card(db: &Database, id: &str, quantity: i64, language: &str, foil: bool, condition: &str, notes: Option<&str>) -> AppResult<()> {
     repositories::update_owned(db, id, quantity, language, foil, condition, notes)
 }

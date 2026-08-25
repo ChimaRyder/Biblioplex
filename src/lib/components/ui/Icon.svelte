@@ -15,14 +15,15 @@
     Trash2,
     Upload,
     X,
-    Minus
+    Minus,
+    Check
   } from "@lucide/svelte";
 
-  export let name: "grid" | "list" | "box" | "deck" | "settings" | "search" | "plus" | "trash" | "x" | "upload" | "chevronDown" | "filter" | "arrowUpDown" | "sparkles" | "pencil" | "minus";
+  export let name: "grid" | "list" | "box" | "deck" | "settings" | "search" | "plus" | "trash" | "x" | "upload" | "chevronDown" | "filter" | "arrowUpDown" | "sparkles" | "pencil" | "minus" | "check" = "grid";
   export let size = 16;
   export let strokeWidth = 1.8;
 
-  const icons = { grid: Grid2X2, list: List, box: Box, deck: Package, settings: Settings, search: Search, plus: Plus, pencil: Pencil, trash: Trash2, x: X, upload: Upload, chevronDown: ChevronDown, filter: Filter, arrowUpDown: ArrowUpDown, sparkles: Sparkles, minus: Minus };
+  const icons = { grid: Grid2X2, list: List, box: Box, deck: Package, settings: Settings, search: Search, plus: Plus, pencil: Pencil, trash: Trash2, x: X, upload: Upload, chevronDown: ChevronDown, filter: Filter, arrowUpDown: ArrowUpDown, sparkles: Sparkles, minus: Minus, check: Check };
   $: IconComponent = icons[name];
 </script>
 

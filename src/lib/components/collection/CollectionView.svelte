@@ -9,6 +9,7 @@
   import Textarea from "$lib/components/ui/textarea/textarea.svelte";
   import * as Select from "$lib/components/ui/select";
   import * as Table from "$lib/components/ui/table";
+  import { Checkbox } from "$lib/components/ui/checkbox";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { checkImageProvider, type ConnectionState } from "$lib/commands/connection";
 
@@ -49,13 +50,15 @@
   let previewPosition = { top: 0, left: 0 };
   let previewTimer: ReturnType<typeof setTimeout> | undefined;
   let previewImageFailed = false;
+  let selectedCardIds = new Set<string>();
+  let bulkRemoving = false;
   $: activeFace = selectedCard?.faces?.[activeFaceIndex] ?? selectedCard?.faces?.[0];
   $: previewFace = previewCard?.faces?.[0];
 
   $: displayedCards = cards.sort((a, b) => sortBy === "quantity" ? b.quantity - a.quantity : a.name.localeCompare(b.name));
   $: if (viewMode === "grid") clearPreview();
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
-  async function loadCollection(query = collectionQuery) { loading = true; try { cards = await invoke<Card[]>("search_owned_cards", { request: { query } }); error = ""; } catch (err) { error = String(err); } finally { loading = false; } }
+  async function loadCollection(query = collectionQuery) { loading = true; try { cards = await invoke<Card[]>("search_owned_cards", { request: { query } }); selectedCardIds = new Set([...selectedCardIds].filter((id) => cards.some((card) => card.id === id))); error = ""; } catch (err) { error = String(err); } finally { loading = false; } }
   function searchAsYouType() {
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(() => loadCollection(collectionQuery), 180);
@@ -99,7 +102,10 @@
   function openViewer(card: Card) { selectedCard = card; activeFaceIndex = 0; imageFailed = false; viewerOpen = true; }
   function selectFace(index: number) { activeFaceIndex = index; imageFailed = false; }
   function imageSource(card: Card) { const image = card.faces?.[0]?.image; return image?.cached_path || (connectionState === "stable" ? image?.remote_url : undefined); }
-  function enterGridView() { if (connectionState !== "stable" || viewMode === "grid") return; viewMode = "grid"; imageLoading = new Set(displayedCards.filter((card) => imageSource(card)).map((card) => card.id)); imageFailedCards = new Set(); }
+  function toggleCardSelection(id: string) { const next = new Set(selectedCardIds); if (next.has(id)) next.delete(id); else next.add(id); selectedCardIds = next; }
+  function clearSelection() { selectedCardIds = new Set(); }
+  async function removeSelectedCards() { if (!selectedCardIds.size || bulkRemoving) return; bulkRemoving = true; try { await invoke("remove_owned_cards", { ids: [...selectedCardIds] }); clearSelection(); await loadCollection(); } catch (err) { error = String(err); } finally { bulkRemoving = false; } }
+  function enterGridView() { if (connectionState !== "stable" || viewMode === "grid") return; clearSelection(); viewMode = "grid"; imageLoading = new Set(displayedCards.filter((card) => imageSource(card)).map((card) => card.id)); imageFailedCards = new Set(); }
   function markImageLoading(id: string) { imageLoading = new Set(imageLoading).add(id); }
   function markImageLoaded(id: string) { const next = new Set(imageLoading); next.delete(id); imageLoading = next; }
   function markImageFailed(id: string) { markImageLoaded(id); imageFailedCards = new Set(imageFailedCards).add(id); }
@@ -137,6 +143,12 @@
 
 <section class="relative rounded-2xl border border-border bg-panel p-7 max-sm:p-5">
   <div class="mb-5 flex items-center gap-3"><h2 class="text-2xl tracking-tight">All Cards</h2><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-foreground" aria-label={`${displayedCards.length} cards`}>{displayedCards.length}</span></div>
+  {#if selectedCardIds.size > 0}
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#806c3e] bg-[#2a2418] px-4 py-3" role="status" aria-live="polite">
+      <span class="text-sm font-medium text-[#f7d889]">{selectedCardIds.size} {selectedCardIds.size === 1 ? "card" : "cards"} selected</span>
+      <div class="flex gap-2"><Button variant="destructive" size="sm" disabled={bulkRemoving} onclick={removeSelectedCards} title="Remove Cards"><Icon name="trash" size={16} /></Button><Button variant="outline" size="sm" disabled={bulkRemoving} onclick={clearSelection} title="Cancel"><Icon name="x" size={16} /></Button></div>
+    </div>
+  {/if}
 
   <Dialog.Root bind:open={quickOpen}>
     <Dialog.Content class="max-w-xl overflow-hidden border-[#3a4663] bg-panel-raised p-0 text-foreground" showCloseButton={false}>
@@ -225,7 +237,8 @@
       <Table.Root>
         <Table.Header>
           <Table.Row>
-            <Table.Head></Table.Head>
+            <Table.Head><span class="sr-only">Select</span></Table.Head>
+            <Table.Head><span class="sr-only">Add/Remove</span></Table.Head>
             <Table.Head>Card Name</Table.Head>
             <Table.Head>Mana Cost</Table.Head>
             <Table.Head>Type</Table.Head>
@@ -236,13 +249,16 @@
         <Table.Body>
           {#each displayedCards as card (card.id)}
             <Table.Row
-              class="cursor-pointer text-[#aab5ce]"
+              class="group cursor-pointer text-[#aab5ce]"
               tabindex="0"
               role="button"
               aria-label={`View details for ${card.name}`}
               onclick={() => openViewer(card)}
               onkeydown={(event: KeyboardEvent) => (event.key === "Enter" || event.key === " ") && openViewer(card)}
             >
+              <Table.Cell class="w-10">
+                <Checkbox checked={selectedCardIds.has(card.id)} aria-label={`Select ${card.name}`} class={`${selectedCardIds.size === 0 ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`} onclick={(event: MouseEvent) => event.stopPropagation()} onCheckedChange={() => toggleCardSelection(card.id)} />
+              </Table.Cell>
               <Table.Cell>
                 <div class="flex items-center gap-3">
                   <Button variant="outline" size="icon" class="size-7 hover:!border-none hover:!bg-primary hover:!text-primary-foreground" aria-label={`Add Card`} title={`Add Card`} disabled={adjusting === card.id} onclick={(event: MouseEvent) => { event.stopPropagation(); adjustQuantity(card, 1); }}>
