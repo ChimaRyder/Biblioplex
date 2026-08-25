@@ -11,7 +11,6 @@
   import * as Table from "$lib/components/ui/table";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { checkImageProvider, type ConnectionState } from "$lib/commands/connection";
-    import { Italic } from "@lucide/svelte";
 
   type CardFace = { face_order: number; name: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; oracle_text?: string; image: { cached_path?: string; remote_url?: string; status: "cached" | "missing" | "stale" | "unavailable" } };
   type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
@@ -31,7 +30,7 @@
   let viewMode: "list" | "grid" = "list";
   let imageLoading = new Set<string>();
   let imageFailedCards = new Set<string>();
-  let removing = "";
+  let adjusting = "";
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let selectedCard: Card | null = null;
   let viewerOpen = false;
@@ -75,7 +74,25 @@
     duplicateCard = null; quickQuery = ""; quickResults = []; quickOpen = false; await loadCollection();
   }
   function cancelDuplicateWarning() { duplicateCard = null; quickAdding = ""; }
-  async function removeCard(id: string) { if (removing !== id) { removing = id; return; } try { await invoke("remove_owned_card", { id }); await loadCollection(); } catch (err) { error = String(err); } finally { removing = ""; } }
+  async function adjustQuantity(card: Card, delta: 1 | -1) {
+    if (adjusting) return;
+    adjusting = card.id;
+    try {
+      if (delta === -1 && card.quantity === 1) {
+        await invoke("remove_owned_card", { id: card.id });
+      } else {
+        await invoke("update_owned_card", { request: {
+          id: card.id,
+          quantity: card.quantity + delta,
+          language: card.language,
+          foil: card.foil,
+          condition: card.condition,
+          notes: card.notes || null
+        } });
+      }
+      await loadCollection();
+    } catch (err) { error = String(err); } finally { adjusting = ""; }
+  }
   function openEdit(card: Card) { editingCard = card; editQuantity = card.quantity; editLanguage = card.language; editFoil = String(card.foil); editCondition = card.condition; editNotes = card.notes ?? ""; editOpen = true; }
   async function saveEdit() { if (!editingCard || editQuantity < 1) return; savingEdit = true; try { await invoke("update_owned_card", { request: { id: editingCard.id, quantity: editQuantity, language: editLanguage, foil: editFoil === "true", condition: editCondition, notes: editNotes || null } }); editOpen = false; await loadCollection(); } catch (err) { error = String(err); } finally { savingEdit = false; } }
   function openQuickAdd() { quickOpen = true; quickQuery = ""; quickResults = []; }
@@ -157,7 +174,7 @@
             <div class="flex flex-wrap items-center gap-2 border-t border-border pt-4"><span class="rounded-full bg-[#202d48] px-2.5 py-1 text-xs font-semibold text-[#f7d889]">{selectedCard.set_code}</span><span class="text-xs text-muted">#{selectedCard.collector_number}</span>{#if selectedCard.rarity}<span class="text-xs capitalize text-muted">· {selectedCard.rarity}</span>{/if}</div>
             <div class="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm"><div><span class="block text-xs text-muted">Quantity</span><strong class="text-[#f7d889]">{selectedCard.quantity}</strong></div><div><span class="block text-xs text-muted">Condition</span><strong class="capitalize">{selectedCard.condition.replace("_", " ")}</strong></div><div><span class="block text-xs text-muted">Language</span><strong>{selectedCard.language.toUpperCase()}</strong></div><div><span class="block text-xs text-muted">Finish</span><strong>{selectedCard.foil ? "Foil" : "Non-Foil"}</strong></div></div>
             {#if selectedCard.notes}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-[#8b9bbd]">Notes</h3><p class="text-sm leading-relaxed text-[#c4cce0]">{selectedCard.notes}</p></div>{/if}
-          </div><div class="pb-1 font-medium">Condition</div>
+          </div>
         {/if}
       {/snippet}
     </Dialog.Content>
@@ -226,7 +243,17 @@
               onclick={() => openViewer(card)}
               onkeydown={(event: KeyboardEvent) => (event.key === "Enter" || event.key === " ") && openViewer(card)}
             >
-              <Table.Cell class="font-bold text-[#f7d889]">{card.quantity} x</Table.Cell>
+              <Table.Cell>
+                <div class="flex items-center gap-3">
+                  <Button variant="outline" size="icon" class="size-7 hover:!border-none hover:!bg-primary hover:!text-primary-foreground" aria-label={`Add Card`} title={`Add Card`} disabled={adjusting === card.id} onclick={(event: MouseEvent) => { event.stopPropagation(); adjustQuantity(card, 1); }}>
+                    <Icon name="plus" size={14} />
+                  </Button>
+                  <div class="font-bold text-[#f7d889]">{card.quantity} x</div>
+                  <Button variant="outline" size="icon" class="size-7 hover:!border-none hover:!bg-primary hover:!text-primary-foreground" aria-label={`Remove Card`} title={`Remove Card`} disabled={adjusting === card.id} onclick={(event: MouseEvent) => { event.stopPropagation(); adjustQuantity(card, -1); }}>
+                    <Icon name="minus" size={14} />
+                  </Button>
+                </div>
+              </Table.Cell>
               <Table.Cell>
                 <strong class="text-foreground">{card.name}</strong>
                 {#if card.foil}<span class="ml-2 text-[10px] font-bold text-[#d6ae58]">FOIL</span>{/if}
@@ -242,9 +269,6 @@
               <Table.Cell>
                 <Button variant="ghost" size="icon" class="size-8" aria-label={`Edit ${card.name}`} title={`Edit ${card.name}`} onclick={(event: MouseEvent) => { event.stopPropagation(); openEdit(card); }}>
                   <Icon name="pencil" size={15} />
-                </Button>
-                <Button variant="destructive" size="sm" aria-label={removing === card.id ? `Confirm removal of ${card.name}` : `Remove ${card.name}`} onclick={(event: MouseEvent) => { event.stopPropagation(); removeCard(card.id); }}>
-                  <Icon name={removing === card.id ? "x" : "trash"} size={14} />{removing === card.id ? "Confirm" : ""}
                 </Button>
               </Table.Cell>
             </Table.Row>
