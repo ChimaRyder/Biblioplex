@@ -131,13 +131,13 @@
 </script>
 
 <div class="mb-8 flex items-end gap-3 max-lg:flex-wrap">
-  <div class="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-md border border-[#52607d] bg-background px-3 transition focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/20 lg:mr-12"><Icon name="search" size={17} /><Input class="h-9! border-0! bg-transparent! shadow-none! outline-none! ring-0! focus:border-transparent! focus:ring-0! focus-visible:border-transparent! focus-visible:ring-0!" bind:value={collectionQuery} placeholder="Search your collection…" aria-label="Search your collection" oninput={searchAsYouType} onkeydown={(event : KeyboardEvent)=> event.key === "Enter" && loadCollection()} /></div>
+  <div class="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-md border border-border bg-background px-3 transition focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/20 lg:mr-12"><Icon name="search" size={17} /><Input class="h-9! border-0! bg-transparent! shadow-none! outline-none! ring-0! focus:border-transparent! focus:ring-0! focus-visible:border-transparent! focus-visible:ring-0!" bind:value={collectionQuery} placeholder="Search your collection…" aria-label="Search your collection" oninput={searchAsYouType} onkeydown={(event : KeyboardEvent)=> event.key === "Enter" && loadCollection()} /></div>
   <div class="ml-auto flex items-end gap-3 max-lg:ml-0">
-    <div class="flex h-10 items-center rounded-md border border-[#303d5d] bg-background p-1" aria-label="Collection view">
+    <div class="flex h-10 items-center rounded-md border border-border bg-background p-1" aria-label="Collection view">
       <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" class="size-8" aria-label="List View" title="List View" aria-pressed={viewMode === "list"} onclick={() => viewMode = "list"}><Icon name="list" size={17} /></Button>
       <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" class="size-8" aria-label={connectionState === "stable" ? "Card Grid View" : "Card Grid View requires a stable connection"} title={connectionState === "stable" ? "Card Grid View" : "Card Grid requires a stable connection"} aria-pressed={viewMode === "grid"} disabled={connectionState !== "stable"} onclick={enterGridView}><Icon name="grid" size={17} /></Button>
     </div>
-    <select class="h-10 min-w-32 appearance-none rounded-md border border-[#303d5d] bg-background px-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20" bind:value={sortBy} aria-label="Sort collection"><option value="name">Card Name</option><option value="quantity">Quantity</option></select>
+    <select class="h-10 min-w-32 appearance-none rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20" bind:value={sortBy} aria-label="Sort collection"><option value="name">Card Name</option><option value="quantity">Quantity</option></select>
     <Button variant="outline" size="icon" class="h-10! w-10!" aria-label="Add a card" title="Add a card" onclick={openQuickAdd}><Icon name="plus" size={18} /></Button>
   </div>
 </div>
@@ -145,14 +145,14 @@
 <section class="relative rounded-2xl border border-border bg-panel p-7 max-sm:p-5">
   <div class="mb-5 flex items-center gap-3"><h2 class="text-2xl tracking-tight">All Cards</h2><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-foreground" aria-label={`${totalCardQuantity} cards`}>{totalCardQuantity}</span></div>
   {#if selectedCardIds.size > 0}
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#806c3e] bg-[#2a2418] px-4 py-3" role="status" aria-live="polite">
-      <span class="text-sm font-medium text-[#f7d889]">{selectedCardIds.size} {selectedCardIds.size === 1 ? "card" : "cards"} selected</span>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-panel-raised px-4 py-3" role="status" aria-live="polite">
+      <span class="text-sm font-medium text-primary">{selectedCardIds.size} {selectedCardIds.size === 1 ? "card" : "cards"} selected</span>
       <div class="flex gap-2"><Button variant="destructive" size="sm" disabled={bulkRemoving} onclick={removeSelectedCards} title="Remove Cards"><Icon name="trash" size={16} /></Button><Button variant="outline" size="sm" disabled={bulkRemoving} onclick={clearSelection} title="Cancel"><Icon name="x" size={16} /></Button></div>
     </div>
   {/if}
 
   <Dialog.Root bind:open={quickOpen}>
-    <Dialog.Content class="max-w-xl overflow-hidden border-[#3a4663] bg-panel-raised p-0 text-foreground" showCloseButton={false}>
+    <Dialog.Content class="max-w-xl overflow-hidden border-border bg-panel-raised p-0 text-foreground" showCloseButton={false}>
       {#snippet children()}
         {#if duplicateCard}
           <div class="grid gap-5 p-6">
@@ -161,10 +161,10 @@
             <div class="flex justify-end gap-2"><Button variant="outline" onclick={cancelDuplicateWarning}>Cancel</Button><Button onclick={() => confirmQuickAdd(duplicateCard!.catalog)}>Add anyway</Button></div>
           </div>
         {:else}
-          <div class="flex items-center justify-between border-b border-border px-4 py-3"><div><Dialog.Title class="font-semibold">Add a card</Dialog.Title><Dialog.Description class="text-xs text-muted">Search the local catalog</Dialog.Description></div><Dialog.Close class="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-red-400/10 hover:text-red-300" aria-label="Close add card command menu"><Icon name="x" size={16} /></Dialog.Close></div>
+          <div class="flex items-center justify-between border-b border-border px-4 py-3"><div><Dialog.Title class="font-semibold">Add a card</Dialog.Title><Dialog.Description class="text-xs text-muted">Search the local catalog</Dialog.Description></div><Dialog.Close class="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-destructive/10 hover:text-destructive" aria-label="Close add card command menu"><Icon name="x" size={16} /></Dialog.Close></div>
         <Command.Root class="bg-transparent text-foreground" shouldFilter={false}>
-          <Command.Input bind:value={quickQuery} oninput={() => searchQuickAdd(quickQuery)} autofocus class="h-12 w-full bg-transparent text-sm outline-none placeholder:text-[#647394]" placeholder="Search card name, set, or collector number…" aria-label="Search catalog" />
-          <Command.List class="max-h-80 overflow-y-auto p-2"><Command.Empty class="p-5 text-center text-sm text-muted">{quickQuery ? "No catalog matches. Import MTGJSON from Settings first." : "Start typing to find a card to add."}</Command.Empty><Command.Group>{#each quickResults as result (result.uuid)}<Command.Item value={`${result.name} ${result.set_code} ${result.collector_number} ${result.uuid}`} onSelect={() => quickAdd(result)} class="flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left outline-none data-[highlighted]:bg-[#202d48]" disabled={quickAdding === result.uuid}><span><strong class="block">{result.name}</strong><small class="text-xs text-[#8b9bbd]">{result.set_code} · {result.collector_number} · {result.rarity || "unknown"}</small></span>{#if quickAdding === result.uuid}<span class="text-xs text-[#f7d889]">Adding…</span>{/if}</Command.Item>{/each}</Command.Group></Command.List>
+          <Command.Input bind:value={quickQuery} oninput={() => searchQuickAdd(quickQuery)} autofocus class="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted" placeholder="Search card name, set, or collector number…" aria-label="Search catalog" />
+          <Command.List class="max-h-80 overflow-y-auto p-2"><Command.Empty class="p-5 text-center text-sm text-muted">{quickQuery ? "No catalog matches. Import MTGJSON from Settings first." : "Start typing to find a card to add."}</Command.Empty><Command.Group>{#each quickResults as result (result.uuid)}<Command.Item value={`${result.name} ${result.set_code} ${result.collector_number} ${result.uuid}`} onSelect={() => quickAdd(result)} class="flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left outline-none data-[highlighted]:bg-accent" disabled={quickAdding === result.uuid}><span><strong class="block">{result.name}</strong><small class="text-xs text-muted">{result.set_code} · {result.collector_number} · {result.rarity || "unknown"}</small></span>{#if quickAdding === result.uuid}<span class="text-xs text-primary">Adding…</span>{/if}</Command.Item>{/each}</Command.Group></Command.List>
         </Command.Root>
         {/if}
       {/snippet}
@@ -172,21 +172,21 @@
   </Dialog.Root>
 
   <Dialog.Root bind:open={viewerOpen}>
-    <Dialog.Content class="fixed inset-y-0 right-0 left-auto z-50 flex h-full w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-y-auto rounded-none border-l border-[#3a4663] bg-panel-raised p-0 text-foreground shadow-2xl data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right" showCloseButton={false}>
+    <Dialog.Content class="fixed inset-y-0 right-0 left-auto z-50 flex h-full w-full max-w-md translate-x-0 translate-y-0 flex-col gap-0 overflow-y-auto rounded-none border-l border-border bg-panel-raised p-0 text-foreground shadow-2xl data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right" showCloseButton={false}>
       {#snippet children()}
         {#if selectedCard}
-          <div class="flex items-center justify-between border-b border-border px-5 py-3"><Dialog.Title class="text-[10px] font-bold tracking-[.16em] text-[#8b9bbd]">CARD DETAILS</Dialog.Title><Dialog.Close class="inline-flex size-6 items-center justify-center rounded-md text-red-400 transition hover:bg-red-400/10 hover:text-red-300" aria-label="Close card details"><Icon name="x" size={13} /></Dialog.Close></div>
+          <div class="flex items-center justify-between border-b border-border px-5 py-3"><Dialog.Title class="text-[10px] font-bold tracking-[.16em] text-muted">CARD DETAILS</Dialog.Title><Dialog.Close class="inline-flex size-6 items-center justify-center rounded-md text-destructive transition hover:bg-destructive/10 hover:text-destructive" aria-label="Close card details"><Icon name="x" size={13} /></Dialog.Close></div>
           <div class="grid gap-6 p-5">
             {#if (activeFace?.image.cached_path || activeFace?.image.remote_url) && !imageFailed}
               <div class="overflow-hidden rounded-xl border border-border bg-background"><img class="mx-auto block max-h-[520px] w-full object-contain" src={activeFace.image.cached_path || activeFace.image.remote_url} alt={`${activeFace.name} card art`} loading="lazy" onerror={() => (imageFailed = true)} /></div>
             {:else}<div class="grid min-h-40 place-items-center rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted">{activeFace?.image.status === "stale" ? "Cached image is stale." : "Image unavailable offline."}<br />Local metadata is still available.</div>{/if}
             {#if selectedCard.faces.length > 1}<div class="flex justify-center"><Button variant="outline" size="sm" aria-label={`Flip card to ${activeFaceIndex === 0 ? "back" : "front"}`} onclick={() => selectFace(activeFaceIndex === 0 ? 1 : 0)}>↔ {activeFaceIndex === 0 ? "Show back" : "Show front"}</Button></div>{/if}
             <div class="flex items-center justify-between gap-4 border-b border-border pb-4"><Dialog.Title class="min-w-0 break-words font-serif text-2xl leading-tight">{activeFace?.name}</Dialog.Title>{#if manaTokens(activeFace?.mana_cost).length}<span class="mana-cell flex shrink-0 items-center text-lg" aria-label={`Mana cost: ${activeFace?.mana_cost}`}>{#each manaTokens(activeFace?.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-label={token}></i>{/each}</span>{/if}</div>
-            <div class="flex items-center justify-between gap-4"><p class="text-sm text-[#aab5ce]">{activeFace?.card_type || "Card"}</p>{#if activeFace?.card_type?.toLowerCase().includes("creature") && activeFace.power && activeFace.toughness}<span class="text-lg font-semibold text-foreground" aria-label={`Power ${activeFace.power}, toughness ${activeFace.toughness}`}>{activeFace.power}/{activeFace.toughness}</span>{/if}</div>
-            {#if activeFace?.oracle_text}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-[#8b9bbd]">Card text</h3><p class="whitespace-pre-wrap text-sm leading-relaxed text-[#c4cce0]">{activeFace.oracle_text}</p></div>{/if}
-            <div class="flex flex-wrap items-center gap-2 border-t border-border pt-4"><span class="rounded-full bg-[#202d48] px-2.5 py-1 text-xs font-semibold text-[#f7d889]">{selectedCard.set_code}</span><span class="text-xs text-muted">#{selectedCard.collector_number}</span>{#if selectedCard.rarity}<span class="text-xs capitalize text-muted">· {selectedCard.rarity}</span>{/if}</div>
-            <div class="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm"><div><span class="block text-xs text-muted">Quantity</span><strong class="text-[#f7d889]">{selectedCard.quantity}</strong></div><div><span class="block text-xs text-muted">Condition</span><strong class="capitalize">{selectedCard.condition.replace("_", " ")}</strong></div><div><span class="block text-xs text-muted">Language</span><strong>{selectedCard.language.toUpperCase()}</strong></div><div><span class="block text-xs text-muted">Finish</span><strong>{selectedCard.foil ? "Foil" : "Non-Foil"}</strong></div></div>
-            {#if selectedCard.notes}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-[#8b9bbd]">Notes</h3><p class="text-sm leading-relaxed text-[#c4cce0]">{selectedCard.notes}</p></div>{/if}
+            <div class="flex items-center justify-between gap-4"><p class="text-sm text-muted-foreground">{activeFace?.card_type || "Card"}</p>{#if activeFace?.card_type?.toLowerCase().includes("creature") && activeFace.power && activeFace.toughness}<span class="text-lg font-semibold text-foreground" aria-label={`Power ${activeFace.power}, toughness ${activeFace.toughness}`}>{activeFace.power}/{activeFace.toughness}</span>{/if}</div>
+            {#if activeFace?.oracle_text}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Card text</h3><p class="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{activeFace.oracle_text}</p></div>{/if}
+            <div class="flex flex-wrap items-center gap-2 border-t border-border pt-4"><span class="rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-primary">{selectedCard.set_code}</span><span class="text-xs text-muted">#{selectedCard.collector_number}</span>{#if selectedCard.rarity}<span class="text-xs capitalize text-muted">· {selectedCard.rarity}</span>{/if}</div>
+            <div class="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm"><div><span class="block text-xs text-muted">Quantity</span><strong class="text-primary">{selectedCard.quantity}</strong></div><div><span class="block text-xs text-muted">Condition</span><strong class="capitalize">{selectedCard.condition.replace("_", " ")}</strong></div><div><span class="block text-xs text-muted">Language</span><strong>{selectedCard.language.toUpperCase()}</strong></div><div><span class="block text-xs text-muted">Finish</span><strong>{selectedCard.foil ? "Foil" : "Non-Foil"}</strong></div></div>
+            {#if selectedCard.notes}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Notes</h3><p class="text-sm leading-relaxed text-muted-foreground">{selectedCard.notes}</p></div>{/if}
           </div>
         {/if}
       {/snippet}
@@ -194,7 +194,7 @@
   </Dialog.Root>
 
   <Dialog.Root bind:open={editOpen}>
-    <Dialog.Content class="border-[#3a4663] bg-panel-raised text-foreground sm:max-w-lg" showCloseButton={false}>
+    <Dialog.Content class="border-border bg-panel-raised text-foreground sm:max-w-lg" showCloseButton={false}>
       {#snippet children()}
       <Dialog.Header>
         <Dialog.Title>Edit <span class="italic">{editingCard?.name}</span></Dialog.Title>
@@ -221,7 +221,7 @@
       {/snippet}
     </Dialog.Content>
   </Dialog.Root>
-  {#if previewCard && previewFace}<div class="pointer-events-none fixed z-40 w-64 rounded-xl border border-[#52607d] bg-panel-raised p-2 shadow-2xl" style={`top:${previewPosition.top}px;left:${previewPosition.left}px`} aria-hidden="true">{#if (previewFace.image.cached_path || (connectionState === "stable" && previewFace.image.remote_url)) && !previewImageFailed}<img class="block max-h-[360px] w-full rounded-lg object-contain" src={previewFace.image.cached_path || previewFace.image.remote_url} alt="" loading="eager" onerror={() => { previewImageFailed = true; connectionState = "unavailable"; clearPreview(); }} />{:else}<div class="grid min-h-32 place-items-center rounded-lg border border-dashed border-border bg-background p-4 text-center text-xs text-muted">Image unavailable.</div>{/if}<p class="truncate px-1 pt-2 text-xs font-semibold text-foreground">{previewCard.name}</p><p class="px-1 pb-1 text-[11px] text-muted">{previewCard.set_code} · {previewCard.collector_number}</p></div>{/if}
+  {#if previewCard && previewFace}<div class="pointer-events-none fixed z-40 w-64 rounded-xl border border-border bg-panel-raised p-2 shadow-2xl" style={`top:${previewPosition.top}px;left:${previewPosition.left}px`} aria-hidden="true">{#if (previewFace.image.cached_path || (connectionState === "stable" && previewFace.image.remote_url)) && !previewImageFailed}<img class="block max-h-[360px] w-full rounded-lg object-contain" src={previewFace.image.cached_path || previewFace.image.remote_url} alt="" loading="eager" onerror={() => { previewImageFailed = true; connectionState = "unavailable"; clearPreview(); }} />{:else}<div class="grid min-h-32 place-items-center rounded-lg border border-dashed border-border bg-background p-4 text-center text-xs text-muted">Image unavailable.</div>{/if}<p class="truncate px-1 pt-2 text-xs font-semibold text-foreground">{previewCard.name}</p><p class="px-1 pb-1 text-[11px] text-muted">{previewCard.set_code} · {previewCard.collector_number}</p></div>{/if}
   {#if error}<p class="mt-4 text-sm text-destructive" role="alert">{error}</p>{/if}
   {#if loading}
     <p class="text-sm text-muted">Loading local collection…</p>
@@ -250,7 +250,7 @@
         <Table.Body>
           {#each displayedCards as card (card.id)}
             <Table.Row
-              class="group cursor-pointer text-[#aab5ce]"
+              class="group cursor-pointer text-muted-foreground"
               tabindex="0"
               role="button"
               aria-label={`View details for ${card.name}`}
@@ -265,7 +265,7 @@
                   <Button variant="outline" size="icon" class="size-7 hover:!border-none hover:!bg-primary hover:!text-primary-foreground" aria-label={`Add Card`} title={`Add Card`} disabled={adjusting === card.id} onclick={(event: MouseEvent) => { event.stopPropagation(); adjustQuantity(card, 1); }}>
                     <Icon name="plus" size={14} />
                   </Button>
-                  <div class="font-bold text-[#f7d889]">{card.quantity} x</div>
+                  <div class="font-bold text-primary">{card.quantity} x</div>
                   <Button variant="outline" size="icon" class="size-7 hover:!border-none hover:!bg-primary hover:!text-primary-foreground" aria-label={`Remove Card`} title={`Remove Card`} disabled={adjusting === card.id} onclick={(event: MouseEvent) => { event.stopPropagation(); adjustQuantity(card, -1); }}>
                     <Icon name="minus" size={14} />
                   </Button>
@@ -273,8 +273,8 @@
               </Table.Cell>
               <Table.Cell>
                 <strong class="text-foreground">{card.name}</strong>
-                {#if card.foil}<span class="ml-2 text-[10px] font-bold text-[#d6ae58]">FOIL</span>{/if}
-                <small class="mt-1 block text-[11px] text-[#71809f] md:hidden">{card.condition} · {card.language}</small>
+                {#if card.foil}<span class="ml-2 text-[10px] font-bold text-primary">FOIL</span>{/if}
+                <small class="mt-1 block text-[11px] text-muted md:hidden">{card.condition} · {card.language}</small>
               </Table.Cell>
               <Table.Cell class="mana-cell">
                 {#if manaTokens(card.mana_cost).length}

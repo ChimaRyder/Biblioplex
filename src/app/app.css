@@ -44,14 +44,3 @@ button:disabled { cursor: not-allowed; }
 .mana-cell .ms:last-child { margin-right: 0; }
 .mana-cell .ms-w { background-color: var(--color-mana-white); }.mana-cell .ms-u { background-color: var(--color-mana-blue); }.mana-cell .ms-b { background-color: var(--color-mana-black); }.mana-cell .ms-r { background-color: var(--color-mana-red); }.mana-cell .ms-g { background-color: var(--color-mana-green); }.mana-cell .ms-c, .mana-cell .ms-x, .mana-cell .ms-y, .mana-cell .ms-z, .ms-0, .ms-1, .ms-2, .ms-3, .ms-4, .ms-5, .ms-6, .ms-7, .ms-8, .ms-9 { background-color: var(--color-mana-colorless); }
 .ms-w::before{content:"\e600"}.ms-u::before{content:"\e601"}.ms-b::before{content:"\e602"}.ms-r::before{content:"\e603"}.ms-g::before{content:"\e604"}.ms-0::before{content:"\e605"}.ms-1::before{content:"\e606"}.ms-2::before{content:"\e607"}.ms-3::before{content:"\e608"}.ms-4::before{content:"\e609"}.ms-5::before{content:"\e60a"}.ms-6::before{content:"\e60b"}.ms-7::before{content:"\e60c"}.ms-8::before{content:"\e60d"}.ms-9::before{content:"\e60e"}.ms-x::before{content:"\e615"}.ms-y::before{content:"\e616"}.ms-z::before{content:"\e617"}.ms-c::before{content:"\e904"}.ms-wu::before{content:"\e6a9"}.ms-ub::before{content:"\e6ab"}.ms-br::before{content:"\e6ad"}.ms-rg::before{content:"\e6b0"}.ms-gw::before{content:"\e6b1"}.ms-gu::before{content:"\e6b2"}
-
-/* Legacy feature classes are retained for layout compatibility while their
-   rendered colors resolve to the Aether Vault design tokens. */
-.text-\[\#8b9bbd\], .text-\[\#aab5ce\], .text-\[\#c4cce0\], .text-\[\#71809f\], .text-\[\#647394\] { color: var(--color-muted-foreground); }
-.text-\[\#f7d889\], .text-\[\#d6ae58\], .text-\[\#f7c873\] { color: var(--color-primary); }
-.bg-\[\#202d48\] { background-color: var(--color-accent); }
-.border-\[\#52607d\], .border-\[\#303d5d\], .border-\[\#3a4663\], .border-\[\#3b3a4a\] { border-color: var(--color-border); }
-.placeholder\:text-\[\#647394\]::placeholder { color: var(--color-muted); }
-.text-red-400 { color: var(--color-destructive); }
-.hover\:text-red-300:hover { color: var(--color-error); }
-.hover\:bg-red-400\/10:hover { background-color: color-mix(in srgb, var(--color-destructive) 10%, transparent); }
