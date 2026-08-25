@@ -19,6 +19,10 @@ pub fn add_owned_catalog_card(db: &Database, card: &OwnedCard) -> AppResult<()> 
     repositories::create_owned(db, card)
 }
 
+pub fn find_owned_by_printing(db: &Database, printing_id: &str) -> AppResult<Vec<OwnedCard>> {
+    repositories::find_owned_by_printing(db, printing_id)
+}
+
 pub fn import_catalog(
     db: &Database,
     cards: &[crate::domain::CatalogCard],

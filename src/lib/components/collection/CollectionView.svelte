@@ -16,6 +16,7 @@
   type CardFace = { face_order: number; name: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; oracle_text?: string; image: { cached_path?: string; remote_url?: string; status: "cached" | "missing" | "stale" | "unavailable" } };
   type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
   type CatalogCard = { uuid: string; name: string; set_code: string; collector_number: string; rarity?: string };
+  type DuplicateCard = { id: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string };
 
   let cards: Card[] = [];
   let collectionQuery = "";
@@ -24,6 +25,7 @@
   let loading = true;
   let error = "";
   let quickAdding = "";
+  let duplicateCard: { catalog: CatalogCard; rows: DuplicateCard[] } | null = null;
   let quickOpen = false;
   let sortBy = "name";
   let viewMode: "list" | "grid" = "list";
@@ -60,7 +62,19 @@
     searchTimer = setTimeout(() => loadCollection(collectionQuery), 180);
   }
   async function searchQuickAdd(value = quickQuery) { quickQuery = value; if (!quickQuery.trim()) { quickResults = []; return; } try { quickResults = await invoke<CatalogCard[]>("catalog_search", { request: { query: quickQuery, limit: 8 } }); } catch (err) { error = String(err); } }
-  async function quickAdd(card: CatalogCard) { quickAdding = card.uuid; try { await invoke("add_owned_catalog_card", { request: { printing_id: card.uuid, quantity: 1, language: "en", foil: false, condition: "near_mint", notes: null } }); quickQuery = ""; quickResults = []; quickOpen = false; await loadCollection(); } catch (err) { error = String(err); } finally { quickAdding = ""; } }
+  async function quickAdd(card: CatalogCard) {
+    quickAdding = card.uuid;
+    try {
+      const rows = await invoke<DuplicateCard[]>("find_owned_catalog_cards", { printingId: card.uuid });
+      if (rows.length) { duplicateCard = { catalog: card, rows }; return; }
+      await confirmQuickAdd(card);
+    } catch (err) { error = String(err); } finally { quickAdding = ""; }
+  }
+  async function confirmQuickAdd(card: CatalogCard) {
+    await invoke("add_owned_catalog_card", { request: { printing_id: card.uuid, quantity: 1, language: "en", foil: false, condition: "near_mint", notes: null } });
+    duplicateCard = null; quickQuery = ""; quickResults = []; quickOpen = false; await loadCollection();
+  }
+  function cancelDuplicateWarning() { duplicateCard = null; quickAdding = ""; }
   async function removeCard(id: string) { if (removing !== id) { removing = id; return; } try { await invoke("remove_owned_card", { id }); await loadCollection(); } catch (err) { error = String(err); } finally { removing = ""; } }
   function openEdit(card: Card) { editingCard = card; editQuantity = card.quantity; editLanguage = card.language; editFoil = String(card.foil); editCondition = card.condition; editNotes = card.notes ?? ""; editOpen = true; }
   async function saveEdit() { if (!editingCard || editQuantity < 1) return; savingEdit = true; try { await invoke("update_owned_card", { request: { id: editingCard.id, quantity: editQuantity, language: editLanguage, foil: editFoil === "true", condition: editCondition, notes: editNotes || null } }); editOpen = false; await loadCollection(); } catch (err) { error = String(err); } finally { savingEdit = false; } }
@@ -110,11 +124,19 @@
   <Dialog.Root bind:open={quickOpen}>
     <Dialog.Content class="max-w-xl overflow-hidden border-[#3a4663] bg-panel-raised p-0 text-foreground" showCloseButton={false}>
       {#snippet children()}
+        {#if duplicateCard}
+          <div class="grid gap-5 p-6">
+            <div><Dialog.Title class="text-xl">Card already in collection</Dialog.Title><Dialog.Description class="mt-2 text-sm text-muted">{duplicateCard.catalog.name} ({duplicateCard.catalog.set_code} · {duplicateCard.catalog.collector_number}) already has one or more collection rows. Adding this card will create a separate row.</Dialog.Description></div>
+            <div class="grid gap-2">{#each duplicateCard.rows as row}<div class="rounded-md border border-border bg-background px-3 py-2 text-sm"><strong>{row.quantity}×</strong><span class="ml-3">{row.language.toUpperCase()} · {row.foil ? "Foil" : "Non-foil"} · {row.condition.replace("_", " ")}</span></div>{/each}</div>
+            <div class="flex justify-end gap-2"><Button variant="outline" onclick={cancelDuplicateWarning}>Cancel</Button><Button onclick={() => confirmQuickAdd(duplicateCard!.catalog)}>Add anyway</Button></div>
+          </div>
+        {:else}
           <div class="flex items-center justify-between border-b border-border px-4 py-3"><div><Dialog.Title class="font-semibold">Add a card</Dialog.Title><Dialog.Description class="text-xs text-muted">Search the local catalog</Dialog.Description></div><Dialog.Close class="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-red-400/10 hover:text-red-300" aria-label="Close add card command menu"><Icon name="x" size={16} /></Dialog.Close></div>
         <Command.Root class="bg-transparent text-foreground" shouldFilter={false}>
           <Command.Input bind:value={quickQuery} oninput={() => searchQuickAdd(quickQuery)} autofocus class="h-12 w-full bg-transparent text-sm outline-none placeholder:text-[#647394]" placeholder="Search card name, set, or collector number…" aria-label="Search catalog" />
           <Command.List class="max-h-80 overflow-y-auto p-2"><Command.Empty class="p-5 text-center text-sm text-muted">{quickQuery ? "No catalog matches. Import MTGJSON from Settings first." : "Start typing to find a card to add."}</Command.Empty><Command.Group>{#each quickResults as result (result.uuid)}<Command.Item value={`${result.name} ${result.set_code} ${result.collector_number} ${result.uuid}`} onSelect={() => quickAdd(result)} class="flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left outline-none data-[highlighted]:bg-[#202d48]" disabled={quickAdding === result.uuid}><span><strong class="block">{result.name}</strong><small class="text-xs text-[#8b9bbd]">{result.set_code} · {result.collector_number} · {result.rarity || "unknown"}</small></span>{#if quickAdding === result.uuid}<span class="text-xs text-[#f7d889]">Adding…</span>{/if}</Command.Item>{/each}</Command.Group></Command.List>
         </Command.Root>
+        {/if}
       {/snippet}
     </Dialog.Content>
   </Dialog.Root>

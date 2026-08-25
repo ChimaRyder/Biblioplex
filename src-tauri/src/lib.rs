@@ -29,6 +29,7 @@ pub fn run() {
             commands::search_owned_cards,
             commands::add_owned_card,
             commands::add_owned_catalog_card,
+            commands::find_owned_catalog_cards,
             commands::remove_owned_card,
             commands::update_owned_card,
             commands::catalog_import_mtgjson,

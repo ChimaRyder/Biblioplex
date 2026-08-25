@@ -89,6 +89,18 @@ pub fn catalog_printing_exists(db: &Database, printing_id: &str) -> AppResult<bo
     )?)
 }
 
+pub fn find_owned_by_printing(db: &Database, printing_id: &str) -> AppResult<Vec<OwnedCard>> {
+    let mut statement = db.connection.prepare(
+        "SELECT id,printing_id,quantity,language,foil,condition,notes FROM owned_cards WHERE printing_id=?1 ORDER BY id",
+    )?;
+    let rows = statement.query_map([printing_id], |row| Ok(OwnedCard {
+        id: row.get(0)?, printing_id: row.get(1)?, quantity: row.get(2)?,
+        language: row.get(3)?, foil: row.get::<_, i64>(4)? != 0,
+        condition: row.get(5)?, notes: row.get(6)?,
+    }))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn find_catalog_card(db: &Database, printing_id: &str) -> AppResult<Option<CatalogCard>> {
     db.connection
         .query_row(

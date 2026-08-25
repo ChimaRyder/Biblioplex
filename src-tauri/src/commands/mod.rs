@@ -99,6 +99,15 @@ pub struct AddCatalogCardRequest {
     pub notes: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct DuplicateOwnedCardView { pub id: String, pub quantity: i64, pub language: String, pub foil: bool, pub condition: String, pub notes: Option<String> }
+
+#[tauri::command]
+pub fn find_owned_catalog_cards(state: State<'_, Mutex<Database>>, printing_id: String) -> Result<Vec<DuplicateOwnedCardView>, String> {
+    let db = state.lock().map_err(|_| "database lock poisoned".to_string())?;
+    services::find_owned_by_printing(&db, printing_id.trim()).map_err(db_error).map(|cards| cards.into_iter().map(|card| DuplicateOwnedCardView { id: card.id, quantity: card.quantity, language: card.language, foil: card.foil, condition: card.condition, notes: card.notes }).collect())
+}
+
 #[derive(Debug, Deserialize)]
 pub struct UpdateOwnedCardRequest { pub id: String, pub quantity: i64, pub language: String, pub foil: bool, pub condition: String, pub notes: Option<String> }
 
