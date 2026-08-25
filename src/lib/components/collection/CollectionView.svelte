@@ -297,21 +297,21 @@
       {#each displayedCards as card (card.id)}
         {@const face = card.faces?.[0]}
         {@const src = imageSource(card)}
-        <article class="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-          <button class="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`View details for ${card.name}`} onclick={() => openViewer(card)}>
+        <article class="overflow-hidden rounded-xl border border-border bg-background shadow-sm transition-transform duration-200 ease-out hover:z-10 hover:scale-[1.03] hover:shadow-lg">
+          <button class="cursor-pointer block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`View details for ${card.name}`} onclick={() => openViewer(card)}>
             <div class="relative aspect-[5/7] overflow-hidden bg-muted">
               {#if src && !imageFailedCards.has(card.id)}
                 {#if imageLoading.has(card.id)}<Skeleton class="absolute inset-2 rounded-lg" />{/if}
-                <img class:hidden={imageLoading.has(card.id)} class="h-full w-full object-cover" src={src} alt={`${card.name} card art`} loading="lazy" onload={() => markImageLoaded(card.id)} onerror={() => markImageFailed(card.id)} />
+                <img class:opacity-0={imageLoading.has(card.id)} class="h-full w-full object-cover transition-opacity" src={src} alt={`${card.name} card art`} loading="lazy" onload={() => markImageLoaded(card.id)} onerror={() => markImageFailed(card.id)} />
               {:else}
                 <div class="flex h-full items-center justify-center p-4 text-center text-xs text-muted">{face?.image.status === "stale" ? "Cached image is stale." : "Image unavailable."}</div>
               {/if}
             </div>
-            <div class="grid gap-1 p-3">
+            <!-- <div class="grid gap-1 p-3">
               <strong class="truncate text-sm text-foreground">{card.name}</strong>
               <span class="text-xs text-muted">{card.quantity}x · {card.set_code} · #{card.collector_number}</span>
               <span class="truncate text-xs text-muted">{card.card_type || "Card"}{#if card.foil} · Foil{/if}</span>
-            </div>
+            </div> -->
           </button>
         </article>
       {/each}
