@@ -126,7 +126,7 @@
       {#snippet children()}
         {#if duplicateCard}
           <div class="grid gap-5 p-6">
-            <div><Dialog.Title class="text-xl">Card already in collection</Dialog.Title><Dialog.Description class="mt-2 text-sm text-muted">{duplicateCard.catalog.name} ({duplicateCard.catalog.set_code} · {duplicateCard.catalog.collector_number}) already has one or more collection rows. Adding this card will create a separate row.</Dialog.Description></div>
+            <div><Dialog.Title class="text-xl">Card already in collection</Dialog.Title><Dialog.Description class="mt-2 text-sm text-muted"><span class="font-bold">{duplicateCard.catalog.name} ({duplicateCard.catalog.set_code} · {duplicateCard.catalog.collector_number})</span>  already exists in your collection. Adding this card will create a separate row.</Dialog.Description></div>
             <div class="grid gap-2">{#each duplicateCard.rows as row}<div class="rounded-md border border-border bg-background px-3 py-2 text-sm"><strong>{row.quantity}×</strong><span class="ml-3">{row.language.toUpperCase()} · {row.foil ? "Foil" : "Non-foil"} · {row.condition.replace("_", " ")}</span></div>{/each}</div>
             <div class="flex justify-end gap-2"><Button variant="outline" onclick={cancelDuplicateWarning}>Cancel</Button><Button onclick={() => confirmQuickAdd(duplicateCard!.catalog)}>Add anyway</Button></div>
           </div>
