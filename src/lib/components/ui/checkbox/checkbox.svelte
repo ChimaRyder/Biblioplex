@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Checkbox as CheckboxPrimitive } from "bits-ui";
-  import { Check } from "@lucide/svelte";
+  import { Check } from "phosphor-svelte";
   import { cn } from "$lib/utils.js";
 
   let { class: className, ...restProps }: CheckboxPrimitive.RootProps = $props();

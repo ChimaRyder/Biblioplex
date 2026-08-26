@@ -161,7 +161,7 @@
             <div class="flex justify-end gap-2"><Button variant="outline" onclick={cancelDuplicateWarning}>Cancel</Button><Button onclick={() => confirmQuickAdd(duplicateCard!.catalog)}>Add anyway</Button></div>
           </div>
         {:else}
-          <div class="flex items-center justify-between border-b border-border px-4 py-3"><div><Dialog.Title class="font-semibold">Add a card</Dialog.Title><Dialog.Description class="text-xs text-muted">Search the local catalog</Dialog.Description></div><Dialog.Close class="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-destructive/10 hover:text-destructive" aria-label="Close add card command menu"><Icon name="x" size={16} /></Dialog.Close></div>
+          <div class="flex items-center justify-between border-b border-border px-4 py-3"><div><Dialog.Title class="font-semibold">Add a Card</Dialog.Title></div><Dialog.Close class="inline-flex size-8 items-center justify-center rounded-md transition hover:bg-destructive/10 text-destructive" aria-label="Close add card command menu"><Icon name="x" size={16} /></Dialog.Close></div>
         <Command.Root class="bg-transparent text-foreground" shouldFilter={false}>
           <Command.Input bind:value={quickQuery} oninput={() => searchQuickAdd(quickQuery)} autofocus class="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted" placeholder="Search card name, set, or collector number…" aria-label="Search catalog" />
           <Command.List class="max-h-80 overflow-y-auto p-2"><Command.Empty class="p-5 text-center text-sm text-muted">{quickQuery ? "No catalog matches. Import MTGJSON from Settings first." : "Start typing to find a card to add."}</Command.Empty><Command.Group>{#each quickResults as result (result.uuid)}<Command.Item value={`${result.name} ${result.set_code} ${result.collector_number} ${result.uuid}`} onSelect={() => quickAdd(result)} class="flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left outline-none data-[highlighted]:bg-accent" disabled={quickAdding === result.uuid}><span><strong class="block">{result.name}</strong><small class="text-xs text-muted">{result.set_code} · {result.collector_number} · {result.rarity || "unknown"}</small></span>{#if quickAdding === result.uuid}<span class="text-xs text-primary">Adding…</span>{/if}</Command.Item>{/each}</Command.Group></Command.List>
@@ -200,7 +200,6 @@
         <Dialog.Title>Edit <span class="italic">{editingCard?.name}</span></Dialog.Title>
       </Dialog.Header>
       <div class="grid gap-4 py-2">
-        <label><div class="pb-1 font-medium">Quantity</div><Input type="number" min="1" bind:value={editQuantity} /></label>
         <label><div class="pb-1 font-medium">Language</div><Select.Root type="single" bind:value={editLanguage}>
           <Select.Trigger class="w-full">{editLanguage === "en" ? "English" : editLanguage === "ja" ? "Japanese" : editLanguage === "de" ? "German" : editLanguage === "fr" ? "French" : "Spanish"}</Select.Trigger>
           <Select.Content>
@@ -298,9 +297,9 @@
       {#each displayedCards as card (card.id)}
         {@const face = card.faces?.[0]}
         {@const src = imageSource(card)}
-        <article class="overflow-hidden rounded-xl border border-border bg-background shadow-sm transition-transform duration-200 ease-out hover:z-10 hover:scale-[1.03] hover:shadow-lg">
+        <article class="overflow-hidden transition-transform duration-200 ease-out hover:z-10 hover:scale-[1.03]">
           <button class="cursor-pointer block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`View details for ${card.name}`} onclick={() => openViewer(card)}>
-            <div class="relative aspect-[5/7] overflow-hidden bg-muted">
+            <div class="relative aspect-[5/7] overflow-hidden bg-muted rounded-xl  border border-border shadow-sm hover:shadow-lg">
               {#if src && !imageFailedCards.has(card.id)}
                 {#if imageLoading.has(card.id)}<Skeleton class="absolute inset-2 rounded-lg" />{/if}
                 <img class:opacity-0={imageLoading.has(card.id)} class="h-full w-full object-cover transition-opacity" src={src} alt={`${card.name} card art`} loading="lazy" onload={() => markImageLoaded(card.id)} onerror={() => markImageFailed(card.id)} />
@@ -308,11 +307,14 @@
                 <div class="flex h-full items-center justify-center p-4 text-center text-xs text-muted">{face?.image.status === "stale" ? "Cached image is stale." : "Image unavailable."}</div>
               {/if}
             </div>
-            <!-- <div class="grid gap-1 p-3">
-              <strong class="truncate text-sm text-foreground">{card.name}</strong>
-              <span class="text-xs text-muted">{card.quantity}x · {card.set_code} · #{card.collector_number}</span>
-              <span class="truncate text-xs text-muted">{card.card_type || "Card"}{#if card.foil} · Foil{/if}</span>
-            </div> -->
+            <div class="grid gap-2 p-3">
+              <div class="flex items-center justify-center gap-2 text-xs text-muted">
+                <span class="inline-flex items-center gap-1" title={card.foil ? "Foil finish" : "Non-foil finish"} aria-label={card.foil ? "Foil finish" : "Non-foil finish"}>
+                  {#if card.foil} <Icon name="astroid" size={16} weight="fill" class="text-primary"/> {/if}
+                </span>
+                <span class="text-lg font-bold" aria-label={`Quantity: ${card.quantity}`}>{card.quantity}x</span>
+              </div>
+            </div>
           </button>
         </article>
       {/each}

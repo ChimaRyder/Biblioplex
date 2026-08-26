@@ -10,7 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@lucide/svelte": "latest",
+    "phosphor-svelte": "^3.0.0",
     "@tauri-apps/api": "^2.11.1",
     "bits-ui": "^2.18.1",
     "clsx": "^2.1.1",
