@@ -64,6 +64,8 @@
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(() => loadCollection(collectionQuery), 180);
   }
+  function clearCollectionSearch() { if (searchTimer) clearTimeout(searchTimer); collectionQuery = ""; loadCollection(""); }
+  function clearQuickSearch() { quickQuery = ""; quickResults = []; }
   async function searchQuickAdd(value = quickQuery) { quickQuery = value; if (!quickQuery.trim()) { quickResults = []; return; } try { quickResults = await invoke<CatalogCard[]>("catalog_search", { request: { query: quickQuery, limit: 8 } }); } catch (err) { error = String(err); } }
   async function quickAdd(card: CatalogCard) {
     quickAdding = card.uuid;
@@ -131,14 +133,22 @@
 </script>
 
 <div class="mb-8 flex items-end gap-3 max-lg:flex-wrap">
-  <div class="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-md border border-border bg-background px-3 transition focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/20 lg:mr-12"><Icon name="search" size={17} /><Input class="h-9! border-0! bg-transparent! shadow-none! outline-none! ring-0! focus:border-transparent! focus:ring-0! focus-visible:border-transparent! focus-visible:ring-0!" bind:value={collectionQuery} placeholder="Search your collection…" aria-label="Search your collection" oninput={searchAsYouType} onkeydown={(event : KeyboardEvent)=> event.key === "Enter" && loadCollection()} /></div>
+  <div class="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-md border border-border bg-background px-3 transition focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/20 lg:mr-12">
+    <Icon name="search" size={17} />
+    <Input class="h-9! border-0! bg-transparent! shadow-none! outline-none! ring-0! focus:border-transparent! focus:ring-0! focus-visible:border-transparent! focus-visible:ring-0!" bind:value={collectionQuery} placeholder="Search your collection…" aria-label="Search your collection" oninput={searchAsYouType} onkeydown={(event : KeyboardEvent)=> event.key === "Enter" && loadCollection()} />
+      {#if collectionQuery}
+      <button type="button" class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Clear collection search" title="Clear search" onclick={clearCollectionSearch}>
+        <Icon name="x" size={15} />
+      </button>
+      {/if}
+  </div>
   <div class="ml-auto flex items-end gap-3 max-lg:ml-0">
     <div class="flex h-10 items-center rounded-md border border-border bg-background p-1" aria-label="Collection view">
       <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" class="size-8" aria-label="List View" title="List View" aria-pressed={viewMode === "list"} onclick={() => viewMode = "list"}><Icon name="list" size={17} /></Button>
       <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" class="size-8" aria-label={connectionState === "stable" ? "Card Grid View" : "Card Grid View requires a stable connection"} title={connectionState === "stable" ? "Card Grid View" : "Card Grid requires a stable connection"} aria-pressed={viewMode === "grid"} disabled={connectionState !== "stable"} onclick={enterGridView}><Icon name="grid" size={17} /></Button>
     </div>
     <select class="h-10 min-w-32 appearance-none rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20" bind:value={sortBy} aria-label="Sort collection"><option value="name">Card Name</option><option value="quantity">Quantity</option></select>
-    <Button variant="outline" size="icon" class="h-10! w-10!" aria-label="Add a card" title="Add a card" onclick={openQuickAdd}><Icon name="plus" size={18} /></Button>
+    <Button variant="outline" size="icon" class="h-10! w-10! hover:!bg-primary hover:!text-primary-foreground" aria-label="Add a card" title="Add a card" onclick={openQuickAdd}><Icon name="plus" size={18} /></Button>
   </div>
 </div>
 
@@ -161,10 +171,9 @@
             <div class="flex justify-end gap-2"><Button variant="outline" onclick={cancelDuplicateWarning}>Cancel</Button><Button onclick={() => confirmQuickAdd(duplicateCard!.catalog)}>Add anyway</Button></div>
           </div>
         {:else}
-          <div class="flex items-center justify-between border-b border-border px-4 py-3"><div><Dialog.Title class="font-semibold">Add a Card</Dialog.Title></div><Dialog.Close class="inline-flex size-8 items-center justify-center rounded-md transition hover:bg-destructive/10 text-destructive" aria-label="Close add card command menu"><Icon name="x" size={16} /></Dialog.Close></div>
         <Command.Root class="bg-transparent text-foreground" shouldFilter={false}>
-          <Command.Input bind:value={quickQuery} oninput={() => searchQuickAdd(quickQuery)} autofocus class="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted" placeholder="Search card name, set, or collector number…" aria-label="Search catalog" />
-          <Command.List class="max-h-80 overflow-y-auto p-2"><Command.Empty class="p-5 text-center text-sm text-muted">{quickQuery ? "No catalog matches. Import MTGJSON from Settings first." : "Start typing to find a card to add."}</Command.Empty><Command.Group>{#each quickResults as result (result.uuid)}<Command.Item value={`${result.name} ${result.set_code} ${result.collector_number} ${result.uuid}`} onSelect={() => quickAdd(result)} class="flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left outline-none data-[highlighted]:bg-accent" disabled={quickAdding === result.uuid}><span><strong class="block">{result.name}</strong><small class="text-xs text-muted">{result.set_code} · {result.collector_number} · {result.rarity || "unknown"}</small></span>{#if quickAdding === result.uuid}<span class="text-xs text-primary">Adding…</span>{/if}</Command.Item>{/each}</Command.Group></Command.List>
+          <Command.Input bind:value={quickQuery} oninput={() => searchQuickAdd(quickQuery)} autofocus class="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted" placeholder="Add a card..." aria-label="Search catalog" />
+          <Command.List class="max-h-80 overflow-y-auto p-2"><Command.Empty class="p-5 text-center text-sm text-muted">{quickQuery ? "No cards found.\n Import a catalog first or search for another card." : "Search for a card name, set, or collector number to add it to your collection."}</Command.Empty><Command.Group>{#each quickResults as result (result.uuid)}<Command.Item value={`${result.name} ${result.set_code} ${result.collector_number} ${result.uuid}`} onSelect={() => quickAdd(result)} class="flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left outline-none data-[highlighted]:bg-accent" disabled={quickAdding === result.uuid}><span><strong class="block">{result.name}</strong><small class="text-xs text-muted">{result.set_code} · {result.collector_number} · {result.rarity || "unknown"}</small></span>{#if quickAdding === result.uuid}<span class="text-xs text-primary">Adding…</span>{/if}</Command.Item>{/each}</Command.Group></Command.List>
         </Command.Root>
         {/if}
       {/snippet}
