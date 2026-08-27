@@ -59,6 +59,27 @@
   $: totalCardQuantity = displayedCards.reduce((total, card) => total + card.quantity, 0);
   $: if (viewMode === "grid") clearPreview();
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
+  const oracleSymbolClasses: Record<string, string> = {
+    w: "w", u: "u", b: "b", r: "r", g: "g", c: "c", x: "x", y: "y", z: "z", s: "s", p: "p",
+    t: "tap", q: "untap", tap: "tap", untap: "untap", e: "e", energy: "energy", acorn: "acorn", tk: "tk", ticket: "ticket",
+    l: "l", d: "d", infinity: "infinity", "1-2": "1-2", "100": "100", "1000000": "1000000",
+    "2/w": "2w", "2/u": "2u", "2/b": "2b", "2/r": "2r", "2/g": "2g",
+    "w/u": "wu", "w/b": "wb", "u/b": "ub", "u/r": "ur", "b/r": "br", "b/g": "bg", "r/w": "rw", "r/g": "rg", "g/w": "gw", "g/u": "gu",
+    "w/p": "wp", "u/p": "up", "b/p": "bp", "r/p": "rp", "g/p": "gp"
+  };
+  for (let index = 0; index <= 20; index += 1) oracleSymbolClasses[String(index)] = String(index);
+  function oracleTokens(text?: string) {
+    if (!text) return [];
+    try {
+      return text.split(/(\{[^}]+\})/g).map((value) => {
+        if (value.charAt(0) !== "{" || value.charAt(value.length - 1) !== "}") return { text: value, className: undefined };
+        const symbol = value.slice(1, -1).toLowerCase();
+        return { text: value, className: oracleSymbolClasses[symbol] };
+      });
+    } catch (_) {
+      return [{ text: text, className: undefined }];
+    }
+  }
   async function loadCollection(query = collectionQuery) { loading = true; try { cards = await invoke<Card[]>("search_owned_cards", { request: { query } }); selectedCardIds = new Set([...selectedCardIds].filter((id) => cards.some((card) => card.id === id))); error = ""; } catch (err) { error = String(err); } finally { loading = false; } }
   function searchAsYouType() {
     if (searchTimer) clearTimeout(searchTimer);
@@ -186,13 +207,13 @@
         {#if selectedCard}
           <div class="flex items-center justify-between border-b border-border px-5 py-3"><Dialog.Title class="text-[10px] font-bold tracking-[.16em] text-muted">CARD DETAILS</Dialog.Title><Dialog.Close class="inline-flex size-6 items-center justify-center rounded-md text-destructive transition hover:bg-destructive/10 hover:text-destructive" aria-label="Close card details"><Icon name="x" size={13} /></Dialog.Close></div>
           <div class="grid gap-6 p-5">
-            {#if (activeFace?.image.cached_path || activeFace?.image.remote_url) && !imageFailed}
+            {#if (activeFace?.image.cached_path || (connectionState === "stable" && activeFace?.image.remote_url)) && !imageFailed}
               <div class="overflow-hidden rounded-xl border border-border bg-background"><img class="mx-auto block max-h-[520px] w-full object-contain" src={activeFace.image.cached_path || activeFace.image.remote_url} alt={`${activeFace.name} card art`} loading="lazy" onerror={() => (imageFailed = true)} /></div>
             {:else}<div class="grid min-h-40 place-items-center rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted">{activeFace?.image.status === "stale" ? "Cached image is stale." : "Image unavailable offline."}<br />Local metadata is still available.</div>{/if}
             {#if selectedCard.faces.length > 1}<div class="flex justify-center"><Button variant="outline" size="sm" aria-label={`Flip card to ${activeFaceIndex === 0 ? "back" : "front"}`} onclick={() => selectFace(activeFaceIndex === 0 ? 1 : 0)}>↔ {activeFaceIndex === 0 ? "Show back" : "Show front"}</Button></div>{/if}
             <div class="flex items-center justify-between gap-4 border-b border-border pb-4"><Dialog.Title class="min-w-0 break-words font-serif text-2xl leading-tight">{activeFace?.name}</Dialog.Title>{#if manaTokens(activeFace?.mana_cost).length}<span class="mana-cell flex shrink-0 items-center text-lg" aria-label={`Mana cost: ${activeFace?.mana_cost}`}>{#each manaTokens(activeFace?.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-label={token}></i>{/each}</span>{/if}</div>
             <div class="flex items-center justify-between gap-4"><p class="text-sm text-muted-foreground">{activeFace?.card_type || "Card"}</p>{#if activeFace?.card_type?.toLowerCase().includes("creature") && activeFace.power && activeFace.toughness}<span class="text-lg font-semibold text-foreground" aria-label={`Power ${activeFace.power}, toughness ${activeFace.toughness}`}>{activeFace.power}/{activeFace.toughness}</span>{/if}</div>
-            {#if activeFace?.oracle_text}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Card text</h3><p class="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{activeFace.oracle_text}</p></div>{/if}
+            {#if activeFace?.oracle_text}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Card text</h3><p class="oracle-text whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{#each oracleTokens(activeFace.oracle_text) as part}{#if part.className}<i class={`ms ms-cost ms-${part.className}`} aria-label={part.text}></i>{:else}{part.text}{/if}{/each}</p></div>{/if}
             <div class="flex flex-wrap items-center gap-2 border-t border-border pt-4"><span class="rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-primary">{selectedCard.set_code}</span><span class="text-xs text-muted">#{selectedCard.collector_number}</span>{#if selectedCard.rarity}<span class="text-xs capitalize text-muted">· {selectedCard.rarity}</span>{/if}</div>
             <div class="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm"><div><span class="block text-xs text-muted">Quantity</span><strong class="text-primary">{selectedCard.quantity}</strong></div><div><span class="block text-xs text-muted">Condition</span><strong class="capitalize">{selectedCard.condition.replace("_", " ")}</strong></div><div><span class="block text-xs text-muted">Language</span><strong>{selectedCard.language.toUpperCase()}</strong></div><div><span class="block text-xs text-muted">Finish</span><strong>{selectedCard.foil ? "Foil" : "Non-Foil"}</strong></div></div>
             {#if selectedCard.notes}<div class="border-t border-border pt-4"><h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Notes</h3><p class="text-sm leading-relaxed text-muted-foreground">{selectedCard.notes}</p></div>{/if}
