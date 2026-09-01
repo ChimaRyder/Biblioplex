@@ -1,0 +1,2 @@
+<script lang="ts">import { Popover as P } from "bits-ui"; import { cn } from "$lib/utils.js"; import Portal from "./popover-portal.svelte"; let { class: className, children, portalProps = undefined, ...props } = $props();</script>
+<Portal {...portalProps}><P.Content class={cn("z-50 w-72 rounded-lg border border-border bg-popover p-4 text-popover-foreground shadow-md outline-none", className)} {...props}>{@render children?.()}</P.Content></Portal>

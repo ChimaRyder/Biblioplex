@@ -34,6 +34,7 @@ pub struct CatalogCard {
     pub rarity: Option<String>,
     pub oracle_text: Option<String>,
     pub mana_cost: Option<String>,
+    pub colors: Vec<String>,
     pub card_type: Option<String>,
     pub power: Option<String>,
     pub toughness: Option<String>,

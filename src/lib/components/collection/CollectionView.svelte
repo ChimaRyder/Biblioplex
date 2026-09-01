@@ -10,11 +10,12 @@
   import * as Select from "$lib/components/ui/select";
   import * as Table from "$lib/components/ui/table";
   import { Checkbox } from "$lib/components/ui/checkbox";
+  import CollectionFilters from "./CollectionFilters.svelte";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { checkImageProvider, type ConnectionState } from "$lib/commands/connection";
 
   type CardFace = { face_order: number; name: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; oracle_text?: string; image: { cached_path?: string; remote_url?: string; status: "cached" | "missing" | "stale" | "unavailable" } };
-  type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
+  type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; colors?: string[]; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
   type CatalogCard = { uuid: string; name: string; set_code: string; collector_number: string; rarity?: string };
   type DuplicateCard = { id: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string };
 
@@ -28,6 +29,11 @@
   let duplicateCard: { catalog: CatalogCard; rows: DuplicateCard[] } | null = null;
   let quickOpen = false;
   let sortBy = "name";
+  let selectedColors = new Set<string>();
+  let selectedTypes = new Set<string>();
+  let selectedSets = new Set<string>();
+  let availableSets: string[] = [];
+  let displayedCards: Card[] = [];
   let viewMode: "list" | "grid" = "list";
   let imageLoading = new Set<string>();
   let imageFailedCards = new Set<string>();
@@ -55,7 +61,14 @@
   $: activeFace = selectedCard?.faces?.[activeFaceIndex] ?? selectedCard?.faces?.[0];
   $: previewFace = previewCard?.faces?.[0];
 
-  $: displayedCards = cards.sort((a, b) => sortBy === "quantity" ? b.quantity - a.quantity : a.name.localeCompare(b.name));
+  $: availableSets = [...new Set<string>(cards.map((card) => card.set_code))].sort();
+  $: selectedSets = new Set<string>([...selectedSets].filter((set: string) => availableSets.includes(set)));
+  $: displayedCards = cards.filter((card) => {
+    const cardColors = card.colors?.length ? card.colors : manaTokens(card.mana_cost).filter((token) => ["w", "u", "b", "r", "g"].includes(token)).map((token) => ({ w: "White", u: "Blue", b: "Black", r: "Red", g: "Green" } as Record<string, string>)[token]);
+    const matchesColor = !selectedColors.size || (selectedColors.has("Colorless") && !cardColors.length) || cardColors.some((color) => selectedColors.has(color));
+    const matchesType = !selectedTypes.size || [...selectedTypes].some((type) => card.card_type?.split(/[—–-]/)[0].split(" ").includes(type));
+    return matchesColor && matchesType && (!selectedSets.size || selectedSets.has(card.set_code));
+  }).sort((a, b) => sortBy === "quantity" ? b.quantity - a.quantity : a.name.localeCompare(b.name));
   $: totalCardQuantity = displayedCards.reduce((total, card) => total + card.quantity, 0);
   $: if (viewMode === "grid") clearPreview();
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
@@ -169,6 +182,7 @@
       <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" class="size-8" aria-label={connectionState === "stable" ? "Card Grid View" : "Card Grid View requires a stable connection"} title={connectionState === "stable" ? "Card Grid View" : "Card Grid requires a stable connection"} aria-pressed={viewMode === "grid"} disabled={connectionState !== "stable"} onclick={enterGridView}><Icon name="grid" size={17} /></Button>
     </div>
     <select class="h-10 min-w-32 appearance-none rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20" bind:value={sortBy} aria-label="Sort collection"><option value="name">Card Name</option><option value="quantity">Quantity</option></select>
+    <CollectionFilters bind:selectedColors bind:selectedTypes bind:selectedSets sets={availableSets} />
     <Button variant="outline" size="icon" class="h-10! w-10! hover:!bg-primary hover:!text-primary-foreground" aria-label="Add a card" title="Add a card" onclick={openQuickAdd}><Icon name="plus" size={18} /></Button>
   </div>
 </div>

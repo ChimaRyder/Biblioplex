@@ -8,8 +8,8 @@ use rusqlite::{params, OptionalExtension};
 pub fn upsert_catalog(db: &Database, cards: &[CatalogCard], version: &str) -> AppResult<()> {
     let tx = db.connection.unchecked_transaction()?;
     for card in cards {
-        tx.execute("INSERT INTO printings(id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11) ON CONFLICT(id) DO UPDATE SET name=excluded.name,set_code=excluded.set_code,collector_number=excluded.collector_number,rarity=excluded.rarity,oracle_text=excluded.oracle_text,mana_cost=excluded.mana_cost,card_type=excluded.card_type,power=excluded.power,toughness=excluded.toughness,scryfall_id=excluded.scryfall_id",
-            params![card.uuid, card.name, card.set_code, card.collector_number, card.rarity, card.oracle_text, card.mana_cost, card.card_type, card.power, card.toughness, card.scryfall_id])?;
+        tx.execute("INSERT INTO printings(id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id,colors) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12) ON CONFLICT(id) DO UPDATE SET name=excluded.name,set_code=excluded.set_code,collector_number=excluded.collector_number,rarity=excluded.rarity,oracle_text=excluded.oracle_text,mana_cost=excluded.mana_cost,card_type=excluded.card_type,power=excluded.power,toughness=excluded.toughness,scryfall_id=excluded.scryfall_id,colors=excluded.colors",
+            params![card.uuid, card.name, card.set_code, card.collector_number, card.rarity, card.oracle_text, card.mana_cost, card.card_type, card.power, card.toughness, card.scryfall_id, serde_json::to_string(&card.colors).unwrap()])?;
         tx.execute("DELETE FROM card_faces WHERE printing_id=?1", [&card.uuid])?;
         let logical_faces = if card.faces.is_empty() {
             vec![CatalogFace { face_order: 0, name: card.name.clone(), mana_cost: card.mana_cost.clone(), card_type: card.card_type.clone(), oracle_text: card.oracle_text.clone(), power: card.power.clone(), toughness: card.toughness.clone(), scryfall_id: card.scryfall_id.clone(), cached_path: None, image_status: "missing".into() }]
@@ -38,6 +38,7 @@ pub fn search_catalog(db: &Database, query: &str, limit: i64) -> AppResult<Vec<C
     let pattern = format!("%{}%", query.trim());
     let mut statement = db.connection.prepare(
         "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id
+                ,colors
          FROM printings
          WHERE name LIKE ?1 COLLATE NOCASE
             OR set_code LIKE ?1 COLLATE NOCASE
@@ -57,6 +58,7 @@ pub fn search_catalog(db: &Database, query: &str, limit: i64) -> AppResult<Vec<C
             card_type: row.get(7)?,
             power: row.get(8)?, toughness: row.get(9)?, scryfall_id: row.get(10)?,
             faces: Vec::new(),
+            colors: row.get::<_, Option<String>>(11)?.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default(),
         })
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
@@ -104,7 +106,7 @@ pub fn find_owned_by_printing(db: &Database, printing_id: &str) -> AppResult<Vec
 pub fn find_catalog_card(db: &Database, printing_id: &str) -> AppResult<Option<CatalogCard>> {
     db.connection
         .query_row(
-            "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id
+            "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id,colors
              FROM printings WHERE id=?1",
             [printing_id],
             |row| {
@@ -119,11 +121,17 @@ pub fn find_catalog_card(db: &Database, printing_id: &str) -> AppResult<Option<C
                     card_type: row.get(7)?,
                     power: row.get(8)?, toughness: row.get(9)?, scryfall_id: row.get(10)?,
                     faces: Vec::new(),
+                    colors: row.get::<_, Option<String>>(11)?.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default(),
                 })
             },
         )
         .optional()
         .map_err(Into::into)
+}
+
+pub fn colors_for_printing(db: &Database, printing_id: &str) -> AppResult<Vec<String>> {
+    let raw: Option<String> = db.connection.query_row("SELECT colors FROM printings WHERE id=?1", [printing_id], |row| row.get(0)).optional()?;
+    Ok(raw.and_then(|value| serde_json::from_str(&value).ok()).unwrap_or_default())
 }
 
 pub fn list_owned(
@@ -337,7 +345,7 @@ mod catalog_tests {
                     collector_number: "161".into(),
                     rarity: Some("common".into()),
                     oracle_text: None,
-                    mana_cost: None,
+                    mana_cost: None, colors: Vec::new(),
                     card_type: None,
                     power: None,
                     toughness: None,
@@ -351,7 +359,7 @@ mod catalog_tests {
                     collector_number: "220".into(),
                     rarity: Some("uncommon".into()),
                     oracle_text: None,
-                    mana_cost: None,
+                    mana_cost: None, colors: Vec::new(),
                     card_type: None,
                     power: None,
                     toughness: None,

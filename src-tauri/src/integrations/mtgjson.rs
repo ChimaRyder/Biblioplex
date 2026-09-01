@@ -23,6 +23,8 @@ struct Card {
     text: Option<String>,
     #[serde(rename = "manaCost")]
     mana_cost: Option<String>,
+    #[serde(default)]
+    colors: Vec<String>,
     #[serde(rename = "type")]
     card_type: Option<String>,
     power: Option<String>,
@@ -79,6 +81,7 @@ pub fn parse_all_printings(input: &str) -> AppResult<Vec<CatalogCard>> {
                 rarity: card.rarity.clone(),
                 oracle_text: card.text.clone(),
                 mana_cost: card.mana_cost.clone(),
+                colors: card.colors.clone(),
                 card_type: card.card_type.clone(),
                 power: card.power.clone(),
                 toughness: card.toughness.clone(),

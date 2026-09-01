@@ -148,7 +148,7 @@ mod tests {
                 collector_number: "1".into(),
                 rarity: None,
                 oracle_text: None,
-                mana_cost: None,
+                mana_cost: None, colors: Vec::new(),
                 card_type: None,
                 power: None,
                 toughness: None,
