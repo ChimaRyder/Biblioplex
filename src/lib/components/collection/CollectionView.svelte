@@ -378,15 +378,23 @@
                 <div class="flex h-full items-center justify-center p-4 text-center text-xs text-muted">{face?.image.status === "stale" ? "Cached image is stale." : "Image unavailable."}</div>
               {/if}
             </div>
-            <div class="grid gap-2 p-3">
-              <div class="flex items-center justify-center gap-2 text-xs text-muted">
-                <span class="inline-flex items-center gap-1" title={card.foil ? "Foil finish" : "Non-foil finish"} aria-label={card.foil ? "Foil finish" : "Non-foil finish"}>
-                  {#if card.foil} <Icon name="astroid" size={16} weight="fill" class="text-primary"/> {/if}
-                </span>
-                <span class="text-lg font-bold" aria-label={`Quantity: ${card.quantity}`}>{card.quantity}x</span>
-              </div>
-            </div>
           </button>
+          <div class="flex justify-center p-3">
+            <Button variant="outline" size="icon" class="size-7 hover:!border-none hover:!bg-primary hover:!text-primary-foreground" aria-label="Add Card" title="Add Card" disabled={adjusting === card.id} onclick={() => adjustQuantity(card, 1)}>
+              <Icon name="plus" size={14} />
+            </Button>
+            <div class="flex items-center px-5 gap-1 text-xs text-muted">
+              <span class="text-lg font-bold" aria-label={`Quantity: ${card.quantity}`}>{card.quantity}x</span>
+              {#if card.foil} 
+              <span class="" title={card.foil ? "Foil finish" : "Non-foil finish"} aria-label={card.foil ? "Foil finish" : "Non-foil finish"}>
+                <Icon name="astroid" size={14} weight="fill" class="text-primary"/> 
+              </span>
+              {/if}
+            </div>
+            <Button variant="outline" size="icon" class="size-7 hover:!border-none hover:!bg-primary hover:!text-primary-foreground" aria-label="Remove Card" title="Remove Card" disabled={adjusting === card.id} onclick={() => adjustQuantity(card, -1)}>
+              <Icon name="minus" size={14} />
+            </Button>
+          </div>
         </article>
       {/each}
     </div>
