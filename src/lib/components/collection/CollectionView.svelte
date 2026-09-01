@@ -208,7 +208,24 @@
         {:else}
         <Command.Root class="bg-transparent text-foreground" shouldFilter={false}>
           <Command.Input bind:value={quickQuery} oninput={() => searchQuickAdd(quickQuery)} autofocus class="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted" placeholder="Add a card..." aria-label="Search catalog" />
-          <Command.List class="max-h-80 overflow-y-auto p-2"><Command.Empty class="p-5 text-center text-sm text-muted">{quickQuery ? "No cards found.\n Import a catalog first or search for another card." : "Search for a card name, set, or collector number to add it to your collection."}</Command.Empty><Command.Group>{#each quickResults as result (result.uuid)}<Command.Item value={`${result.name} ${result.set_code} ${result.collector_number} ${result.uuid}`} onSelect={() => quickAdd(result)} class="flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left outline-none data-[highlighted]:bg-accent" disabled={quickAdding === result.uuid}><span><strong class="block">{result.name}</strong><small class="text-xs text-muted">{result.set_code} · {result.collector_number} · {result.rarity || "unknown"}</small></span>{#if quickAdding === result.uuid}<span class="text-xs text-primary">Adding…</span>{/if}</Command.Item>{/each}</Command.Group></Command.List>
+          <Command.List class="max-h-80 p-2">
+            <Command.Empty class="p-5 text-center text-sm text-muted">
+              {quickQuery ? "No cards found.\n Import a catalog first or search for another card." : "Search for a card name, set, or collector number to add it to your collection."}
+            </Command.Empty>
+            <Command.Group>
+              {#each quickResults as result (result.uuid)}
+              <Command.Item value={`${result.name} ${result.set_code} ${result.collector_number} ${result.uuid}`} onSelect={() => quickAdd(result)} class="quick-add-result flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-2 text-left outline-none data-selected:!bg-accent/75" disabled={quickAdding === result.uuid}>
+                <span>
+                  <strong class="block">{result.name}</strong>
+                  <small class="text-xs text-muted-foreground">{result.set_code} · {result.collector_number} · {result.rarity || "unknown"}</small>
+                </span>
+                {#if quickAdding === result.uuid}
+                <span class="text-xs text-primary">Adding…</span>
+                {/if}
+              </Command.Item>
+              {/each}
+            </Command.Group>
+          </Command.List>
         </Command.Root>
         {/if}
       {/snippet}

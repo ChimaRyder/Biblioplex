@@ -38,6 +38,7 @@ body { min-width: 320px; margin: 0; background: #16130f; }
 button, input, select { font: inherit; }
 button:disabled { cursor: not-allowed; }
 [data-slot="table-row"], [data-slot="table-header"] tr { border-color: var(--color-border); }
+.quick-add-result:hover small, .quick-add-result[data-selected] small { color: var(--color-accent-foreground) !important; }
 
 @font-face { font-family: "Mana"; src: url("/fonts/mana.woff2") format("woff2"); font-weight: normal; font-style: normal; }
 .ms { display: inline-flex; width: 1.10em; height: 1.10em; align-items: center; justify-content: center; margin-right: 3px; padding: 9px; border-radius: 9999px; color: var(--color-background); font: normal normal normal 1em Mana; line-height: 1em; vertical-align: middle; -webkit-font-smoothing: antialiased; }
