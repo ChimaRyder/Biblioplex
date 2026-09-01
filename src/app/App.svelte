@@ -5,6 +5,7 @@
   import CollectionView from "../lib/components/collection/CollectionView.svelte";
   import FeaturePlaceholder from "../lib/components/shared/FeaturePlaceholder.svelte";
   import CatalogSettings from "../lib/components/settings/CatalogSettings.svelte";
+  import { Toaster } from "../lib/components/ui/sonner";
 
   type Page = "collection" | "boxes" | "decks" | "settings";
   let page: Page = "collection";
@@ -21,3 +22,4 @@
     {#if page === "collection"}<CollectionView />{:else if page === "settings"}<CatalogSettings />{:else}<FeaturePlaceholder kind={page} />{/if}
   </main>
 </div>
+<Toaster position="bottom-right" richColors />

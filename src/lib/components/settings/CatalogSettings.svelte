@@ -1,44 +1,77 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
   import Icon from "../ui/Icon.svelte";
-  import { Input } from "$lib/components/ui/input";
-  import { invoke } from "@tauri-apps/api/core";
+  import Textarea from "$lib/components/ui/textarea/textarea.svelte";
+  import * as Dialog from "$lib/components/ui/dialog"; 
+  import * as Select from "$lib/components/ui/select";
+  import { invoke } from "@tauri-apps/api/core"; 
+  import { toast } from "svelte-sonner";
 
-  let importPath = "";
-  let importStatus = "";
-  let importing = false;
-  let clearing = false;
-  let clearArmed = false;
-
-  async function importMtgJson() {
-    if (!importPath.trim() || importing) return;
-    importing = true; importStatus = "Importing catalog…";
-    try {
-      const count = await invoke<number>("catalog_import_mtgjson", { path: importPath.trim() });
-      importStatus = `Imported ${count.toLocaleString()} catalog cards. Your collection data was preserved.`;
-    } catch (err) { importStatus = "Import failed: " + String(err); }
-    finally { importing = false; }
-  }
-
-  async function clearCatalog() {
-    if (!clearArmed) { clearArmed = true; importStatus = "Click Clear catalog again to confirm. Owned cards will be preserved."; return; }
-    clearing = true; clearArmed = false; importStatus = "Clearing unused catalog records…";
-    try { const count = await invoke<number>("catalog_clear"); importStatus = `Cleared ${count.toLocaleString()} unused catalog printings. Owned cards were preserved.`; }
-    catch (err) { importStatus = "Catalog clear failed: " + String(err); }
-    finally { clearing = false; }
-  }
+  let importPath="", catalogFile: File | undefined, status="", importing=false, clearing=false, clearArmed=false, format="mtgo", importOpen=false, text="", importingText=false;
+  async function chooseCatalog(){if(importing)return; try { const selectedPath=await invoke<string|null>("choose_catalog_file"); if(!selectedPath)return; importPath=selectedPath; importing=true; status="Importing catalog…"; const n=await invoke<number>("catalog_import_mtgjson",{path:selectedPath}); status=`Imported ${n.toLocaleString()} catalog cards.`; toast.success(`Imported ${n.toLocaleString()} MTGJSON catalog cards.`); } catch(e) { status="Import failed: "+String(e); toast.error(`MTGJSON import failed: ${String(e)}`); } finally { importing=false; } }
+  async function clearCatalog(){if(!clearArmed){clearArmed=true;status="Click Clear catalog again to confirm. Owned cards will be preserved.";return} clearing=true;clearArmed=false;try{const n=await invoke<number>("catalog_clear");status=`Cleared ${n.toLocaleString()} catalog cards.`;toast.success(`Cleared ${n.toLocaleString()} unused catalog printings.`)}catch(e){status="Catalog clear failed: "+String(e);toast.error(`Catalog clear failed: ${String(e)}`)}finally{clearing=false}}
+  async function exportCollection(){try{const value=await invoke<string>("export_collection_text",{format});const url=URL.createObjectURL(new Blob([value],{type:"text/plain;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download=`collection-${format}.txt`;a.click();URL.revokeObjectURL(url);toast.success(`Exported collection as ${format.toUpperCase()}.`)}catch(e){toast.error(`Export failed: ${String(e)}`)}}
+  async function importCollection(){if(!text.trim()||importingText)return;importingText=true;try{const r=await invoke<{imported:number;skipped:number}>("import_collection_text",{input:text});importOpen=false;text="";toast.success(`Imported ${r.imported} card${r.imported===1?"":"s"}${r.skipped?`. Skipped ${r.skipped}`:""}.`);window.dispatchEvent(new CustomEvent("collection-imported"))}catch(e){toast.error(`Import failed: ${String(e)}`)}finally{importingText=false}}
 </script>
 
-<section class="my-11 flex items-center justify-between gap-6 rounded-3xl border border-border bg-gradient-to-br from-panel-raised to-background p-10 max-sm:p-6"><div><p class="mb-2 text-[11px] font-bold tracking-[.16em] text-muted-foreground">APPLICATION SETTINGS</p><h2 class="mb-3 max-w-xl font-serif text-5xl leading-none tracking-tight max-sm:text-3xl">Keep your catalog current.</h2><p class="max-w-xl text-base leading-relaxed text-muted-foreground">Import card metadata locally so searching and compact collection mode remain available offline.</p></div><div class="text-7xl text-primary max-sm:hidden" aria-hidden="true">⚙</div></section>
-<section class="mb-5 max-w-3xl rounded-2xl border border-border bg-panel p-7 max-sm:p-5" aria-labelledby="catalog-title">
-  <p class="mb-2 text-[11px] font-bold tracking-[.16em] text-muted-foreground">CARD CATALOG</p><h2 id="catalog-title" class="mb-2 text-2xl tracking-tight">Import MTGJSON</h2>
-  <p class="text-sm leading-relaxed text-muted">Use an absolute path to an AllPrintings.json file. Catalog refreshes update metadata without removing owned cards, notes, or organization.</p>
-  <form class="mt-6 flex gap-3 max-sm:flex-col" on:submit|preventDefault={importMtgJson}>
-    <label class="sr-only" for="catalog-path">AllPrintings JSON path</label>
-    <Input id="catalog-path" bind:value={importPath} placeholder="/home/you/Downloads/AllPrintings.json" disabled={importing} />
-    <Button type="submit" disabled={importing || !importPath.trim()}><Icon name="upload" size={15} />{importing ? "Importing…" : "Import catalog"}</Button>
-  </form>
-  {#if importStatus}<p class:import-error={importStatus.startsWith("Import failed")} class="mt-4 text-sm text-status-synced" role="status">{importStatus}</p>{/if}
-  <div class="mt-7 flex items-center justify-between gap-4 border-t border-border pt-5 max-sm:flex-col max-sm:items-start"><div><p class="text-sm font-semibold text-foreground">Reset imported catalog</p><p class="mt-1 text-xs text-muted">Removes unused catalog metadata, faces, and cached images. Owned cards remain safe.</p></div><Button variant="destructive" size="sm" disabled={clearing} onclick={clearCatalog}><Icon name="trash" size={14} />{clearArmed ? "Confirm clear" : clearing ? "Clearing…" : "Clear catalog"}</Button></div>
+<section class="mb-5 w-full rounded-2xl border border-border bg-panel p-7 max-sm:p-5">
+  <div class="flex items-center justify-between gap-6 max-sm:flex-col max-sm:items-stretch">
+    <div class="min-w-0">
+      <h2 class="text-md font-semibold">Import MTGJSON</h2>
+      <p class="text-xs leading-relaxed text-muted">Biblioplex uses <a href="https://mtgjson.com/" target="_blank" class="underline hover:no-underline">MTGJSON</a> for local catalog management.</p>
+      {#if importPath}<p class="mt-3 truncate text-sm text-muted" title={importPath}>{importPath}</p>{/if}
+    </div>
+    <Button class="shrink-0" onclick={chooseCatalog} disabled={importing}>
+      <Icon name="upload" size={15}/>
+      {importing?"Importing…":"Import MTGJSON"}
+    </Button>
+  </div>
+    {#if status}
+    <p class="mt-4 text-sm text-status-synced" role="status">{status}</p>
+    {/if}
+    <div class="mt-7 flex items-center justify-between border-t border-border pt-5">
+      <div>
+        <p class="text-md font-semibold">Reset Catalog</p>
+        <p class="mt-1 text-xs text-muted">Collection data will be retained, but the catalog will be lost.</p>
+      </div>
+      <Button variant="destructive" size="lg" disabled={clearing} onclick={clearCatalog}>
+        <Icon name="trash" size={14}/>
+        {clearArmed?"Confirm" : clearing? "Clearing…" : "Clear"}
+      </Button>
+    </div>
+  </section>
+
+<section class="w-full rounded-2xl border border-border bg-panel p-7 max-sm:p-5">
+  <div class="flex items-center justify-between gap-6 max-sm:flex-col max-sm:items-stretch">
+    <div>
+      <h2 class="text-md font-semibold">Import/Export</h2>
+      <p class="mt-1 text-xs text-muted">Export your collection in various formats or import cards from external sources.</p>
+    </div>
+    <div class="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
+      <Select.Root type="single" bind:value={format}>
+        <Select.Trigger class="w-32 h-full"aria-label="Export format">{format === "mtgo" ? "MTGO" : "MTGA"}</Select.Trigger>
+        <Select.Content>
+          <Select.Item value="mtgo" label="MTGO">MTGO</Select.Item>
+          <Select.Item value="mtga" label="MTGA">MTGA</Select.Item>
+        </Select.Content>
+      </Select.Root>
+      <Button size="lg" onclick={exportCollection}><Icon name="download" size={15}/>Export</Button>
+      <Button variant="outline" size="lg" onclick={()=>importOpen=true}><Icon name="upload" size={15}/>Import</Button>
+    </div>
+  </div>
 </section>
-<section class="max-w-3xl rounded-2xl border border-border bg-panel p-7 max-sm:p-5"><p class="mb-2 text-[11px] font-bold tracking-[.16em] text-muted-foreground">COMING LATER</p><h2 class="mb-2 text-xl">Images and backups</h2><p class="text-sm leading-relaxed text-muted">Optional cached images, versioned JSON export/import, and advanced SQLite backups will be added through the application command layer.</p></section>
+
+<Dialog.Root bind:open={importOpen}>
+  <Dialog.Content class="w-[calc(100vw-2rem)] max-w-5xl border-border bg-panel-raised text-foreground sm:max-w-5xl">
+    <Dialog.Header>
+      <Dialog.Title>Import Collection</Dialog.Title>
+    </Dialog.Header>
+    <Textarea class="min-h-80 resize-y max-h-180 font-mono text-sm" bind:value={text} placeholder={'4 Lightning Bolt\n4 Sol Ring (CMM) 396'} aria-label="Collection import text"/>
+    <Dialog.Footer class="bg-panel border-border">
+      <Dialog.Close class="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-2.5 text-sm font-medium text-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50">Cancel</Dialog.Close>
+      <Button onclick={importCollection} disabled={importingText||!text.trim()}>
+        {importingText?"Importing…":"Import"}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

@@ -157,12 +157,14 @@
   async function refreshConnection() { connectionState = "checking"; connectionState = await checkImageProvider(); if (connectionState !== "stable") clearPreview(); }
   onMount(() => {
     loadCollection(""); refreshConnection();
+    const onCollectionImported = () => loadCollection(collectionQuery);
     const onNetworkChange = () => refreshConnection();
     const onPointerOver = (event: PointerEvent) => { if (viewMode !== "list") return; const row = (event.target as HTMLElement).closest("tbody tr") as HTMLElement | null; if (!row || connectionState !== "stable") return; const rows = [...row.parentElement!.children]; const card = displayedCards[rows.indexOf(row)]; if (card) schedulePreview(card, event, row); };
     const onPointerOut = (event: PointerEvent) => { const row = (event.target as HTMLElement).closest("tbody tr"); if (row && !(event.relatedTarget as Node | null)?.parentElement?.closest?.("tbody tr")) clearPreview(); };
     document.addEventListener("pointerover", onPointerOver); document.addEventListener("pointerout", onPointerOut);
     window.addEventListener("online", onNetworkChange); window.addEventListener("offline", onNetworkChange);
-    return () => { clearPreview(); document.removeEventListener("pointerover", onPointerOver); document.removeEventListener("pointerout", onPointerOut); window.removeEventListener("online", onNetworkChange); window.removeEventListener("offline", onNetworkChange); };
+    window.addEventListener("collection-imported", onCollectionImported);
+    return () => { clearPreview(); document.removeEventListener("pointerover", onPointerOver); document.removeEventListener("pointerout", onPointerOut); window.removeEventListener("online", onNetworkChange); window.removeEventListener("offline", onNetworkChange); window.removeEventListener("collection-imported", onCollectionImported); };
   });
 </script>
 

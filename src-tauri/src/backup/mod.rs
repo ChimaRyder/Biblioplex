@@ -3,7 +3,7 @@ use crate::{
     error::{AppError, AppResult},
     storage::Database,
 };
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -71,6 +71,59 @@ pub fn import(db: &Database, input: &str) -> AppResult<()> {
     }
     tx.commit()?;
     Ok(())
+}
+
+#[derive(Debug, Serialize)]
+pub struct TextImportResult { pub imported: i64, pub skipped: i64 }
+
+fn valid_text(value: &str) -> bool { !value.is_empty() && !value.chars().any(|c| c.is_control()) }
+
+pub fn export_text(db: &Database, format: &str) -> AppResult<String> {
+    if format != "mtgo" && format != "mtga" { return Err(AppError::Validation("unsupported export format".into())); }
+    let mut stmt = db.connection.prepare("SELECT o.quantity,p.name,p.set_code,p.collector_number FROM owned_cards o JOIN printings p ON p.id=o.printing_id ORDER BY p.name COLLATE NOCASE, p.set_code, p.collector_number")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
+    let mut lines = Vec::new();
+    for row in rows {
+        let (quantity, name, set_code, collector) = row?;
+        if quantity > 0 && valid_text(&name) && valid_text(&set_code) && valid_text(&collector) {
+            lines.push(if format == "mtga" { format!("{} {} ({}) {}", quantity, name, set_code, collector) } else { format!("{} {}", quantity, name) });
+        }
+    }
+    Ok(lines.join("\n"))
+}
+
+pub fn import_text(db: &Database, input: &str) -> AppResult<TextImportResult> {
+    if input.trim().is_empty() { return Err(AppError::Validation("import text cannot be empty".into())); }
+    let tx = db.connection.unchecked_transaction()?;
+    let mut imported = 0;
+    let mut skipped = 0;
+    for raw in input.lines() {
+        let line = raw.trim();
+        if line.is_empty() { continue; }
+        let mut parts = line.splitn(2, char::is_whitespace);
+        let quantity: i64 = match parts.next().and_then(|v| v.parse().ok()) { Some(v) if v > 0 => v, _ => { skipped += 1; continue; } };
+        let rest = match parts.next().map(str::trim).filter(|v| valid_text(v)) { Some(v) => v, None => { skipped += 1; continue; } };
+        let (name, set_code, collector) = if let Some(close) = rest.rfind(") ") {
+            if let Some(open) = rest[..close].rfind(" (") {
+                let collector = rest[close + 2..].trim();
+                let set_code = rest[open + 2..close].trim();
+                let name = rest[..open].trim();
+                if valid_text(name) && valid_text(set_code) && valid_text(collector) { (name, Some(set_code), Some(collector)) } else { skipped += 1; continue; }
+            } else { (rest, None, None) }
+        } else { (rest, None, None) };
+        let printing_id: Option<String> = if let (Some(set), Some(number)) = (set_code, collector) {
+            tx.query_row("SELECT id FROM printings WHERE name=?1 COLLATE NOCASE AND set_code=?2 COLLATE NOCASE AND collector_number=?3 ORDER BY id LIMIT 1", params![name, set, number], |r| r.get(0)).optional()?
+        } else {
+            tx.query_row("SELECT p.id FROM printings p LEFT JOIN owned_cards o ON o.printing_id=p.id WHERE p.name=?1 COLLATE NOCASE GROUP BY p.id ORDER BY CASE WHEN count(o.id)>0 THEN 0 ELSE 1 END, p.id LIMIT 1", [name], |r| r.get(0)).optional()?
+        };
+        let Some(printing_id) = printing_id else { skipped += 1; continue; };
+        let existing: Option<(String, i64)> = tx.query_row("SELECT id,quantity FROM owned_cards WHERE printing_id=?1 AND language='en' AND foil=0 AND condition='near_mint' ORDER BY id LIMIT 1", [&printing_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+        if let Some((id, current)) = existing { tx.execute("UPDATE owned_cards SET quantity=?2 WHERE id=?1", params![id, current + quantity])?; }
+        else { tx.execute("INSERT INTO owned_cards(id,printing_id,quantity,language,foil,condition,notes) VALUES (?1,?2,?3,'en',0,'near_mint',NULL)", params![uuid::Uuid::new_v4().to_string(), printing_id, quantity])?; }
+        imported += 1;
+    }
+    tx.commit()?;
+    Ok(TextImportResult { imported, skipped })
 }
 
 #[cfg(test)]

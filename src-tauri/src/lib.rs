@@ -34,7 +34,11 @@ pub fn run() {
             commands::remove_owned_cards,
             commands::update_owned_card,
             commands::catalog_import_mtgjson,
+            commands::catalog_import_mtgjson_text,
+            commands::choose_catalog_file,
             commands::catalog_clear,
+            commands::export_collection_text,
+            commands::import_collection_text,
             commands::catalog_search,
             commands::check_image_provider
         ])

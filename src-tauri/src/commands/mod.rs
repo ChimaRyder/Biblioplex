@@ -350,9 +350,38 @@ pub fn catalog_import_mtgjson(
 }
 
 #[tauri::command]
+pub fn catalog_import_mtgjson_text(state: State<'_, Mutex<Database>>, input: String) -> Result<usize, String> {
+    let cards = crate::integrations::mtgjson::parse_all_printings(&input).map_err(db_error)?;
+    let db = state.lock().map_err(|_| "database lock poisoned".to_string())?;
+    services::import_catalog(&db, &cards, "file upload").map_err(db_error)?;
+    Ok(cards.len())
+}
+
+#[tauri::command]
+pub fn choose_catalog_file() -> Option<String> {
+    rfd::FileDialog::new()
+        .add_filter("MTGJSON catalog", &["json"])
+        .set_title("Choose AllPrintings.json")
+        .pick_file()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 pub fn catalog_clear(state: State<'_, Mutex<Database>>) -> Result<i64, String> {
     let db = state.lock().map_err(|_| "database lock poisoned".to_string())?;
     repositories::clear_catalog(&db).map_err(db_error)
+}
+
+#[tauri::command]
+pub fn export_collection_text(state: State<'_, Mutex<Database>>, format: String) -> Result<String, String> {
+    let db = state.lock().map_err(|_| "database lock poisoned".to_string())?;
+    crate::backup::export_text(&db, format.trim()).map_err(db_error)
+}
+
+#[tauri::command]
+pub fn import_collection_text(state: State<'_, Mutex<Database>>, input: String) -> Result<crate::backup::TextImportResult, String> {
+    let db = state.lock().map_err(|_| "database lock poisoned".to_string())?;
+    crate::backup::import_text(&db, &input).map_err(db_error)
 }
 
 #[tauri::command]
