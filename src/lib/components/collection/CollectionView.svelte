@@ -183,7 +183,15 @@
       <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" class="size-8" aria-label="List View" title="List View" aria-pressed={viewMode === "list"} onclick={() => viewMode = "list"}><Icon name="list" size={17} /></Button>
       <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" class="size-8" aria-label={connectionState === "stable" ? "Card Grid View" : "Card Grid View requires a stable connection"} title={connectionState === "stable" ? "Card Grid View" : "Card Grid requires a stable connection"} aria-pressed={viewMode === "grid"} disabled={connectionState !== "stable"} onclick={enterGridView}><Icon name="grid" size={17} /></Button>
     </div>
-    <select class="h-10 min-w-32 appearance-none rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20" bind:value={sortBy} aria-label="Sort collection"><option value="name">Card Name</option><option value="quantity">Quantity</option></select>
+    <Select.Root type="single" bind:value={sortBy}>
+      <Select.Trigger class="h-10! min-w-32 rounded-md border-border bg-background px-3 text-foreground" aria-label="Sort collection">
+        {sortBy === "quantity" ? "Quantity" : "Card Name"}
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Item value="name" label="Card Name">Card Name</Select.Item>
+        <Select.Item value="quantity" label="Quantity">Quantity</Select.Item>
+      </Select.Content>
+    </Select.Root>
     <CollectionFilters bind:selectedColors bind:selectedTypes bind:selectedSets sets={availableSets} />
     <Button variant="outline" size="icon" class="h-10! w-10! hover:!bg-primary hover:!text-primary-foreground" aria-label="Add a card" title="Add a card" onclick={openQuickAdd}><Icon name="plus" size={18} /></Button>
   </div>
