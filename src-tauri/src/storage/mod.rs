@@ -31,6 +31,9 @@ impl Database {
              CREATE INDEX IF NOT EXISTS idx_printings_name ON printings(name);
              CREATE TABLE IF NOT EXISTS owned_cards (id TEXT PRIMARY KEY, printing_id TEXT NOT NULL REFERENCES printings(id), quantity INTEGER NOT NULL CHECK(quantity > 0), language TEXT NOT NULL, foil INTEGER NOT NULL, condition TEXT NOT NULL, notes TEXT);
              CREATE TABLE IF NOT EXISTS locations (id TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('box','deck')), archived INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE IF NOT EXISTS boxes (id TEXT PRIMARY KEY, name TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE IF NOT EXISTS box_entries (id TEXT PRIMARY KEY, box_id TEXT NOT NULL REFERENCES boxes(id) ON DELETE CASCADE, owned_card_id TEXT REFERENCES owned_cards(id) ON DELETE SET NULL, printing_id TEXT NOT NULL REFERENCES printings(id) ON DELETE RESTRICT, quantity INTEGER NOT NULL CHECK(quantity > 0));
+             CREATE INDEX IF NOT EXISTS idx_box_entries_box ON box_entries(box_id);
              CREATE TABLE IF NOT EXISTS assignments (owned_card_id TEXT PRIMARY KEY REFERENCES owned_cards(id) ON DELETE CASCADE, location_id TEXT NOT NULL REFERENCES locations(id), section TEXT NOT NULL DEFAULT 'box', quantity INTEGER NOT NULL CHECK(quantity > 0));
              CREATE TABLE IF NOT EXISTS tags (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE);
              CREATE TABLE IF NOT EXISTS owned_card_tags (owned_card_id TEXT NOT NULL REFERENCES owned_cards(id) ON DELETE CASCADE, tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY(owned_card_id, tag_id));",

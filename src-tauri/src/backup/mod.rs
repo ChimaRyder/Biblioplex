@@ -1,5 +1,5 @@
 use crate::{
-    domain::{Location, OwnedCard},
+    domain::{Box, BoxEntry, Location, OwnedCard},
     error::{AppError, AppResult},
     storage::Database,
 };
@@ -11,6 +11,8 @@ pub struct Backup {
     pub format_version: u32,
     pub owned_cards: Vec<OwnedCard>,
     pub locations: Vec<Location>,
+    #[serde(default)] pub boxes: Vec<Box>,
+    #[serde(default)] pub box_entries: Vec<BoxEntry>,
 }
 
 pub fn export(db: &Database) -> AppResult<String> {
@@ -45,10 +47,14 @@ pub fn export(db: &Database) -> AppResult<String> {
     })? {
         locations.push(row?);
     }
+    let boxes = db.connection.prepare("SELECT id,name,archived FROM boxes")?.query_map([], |r| Ok(Box { id:r.get(0)?, name:r.get(1)?, archived:r.get::<_,i64>(2)? != 0 }))?.collect::<Result<Vec<_>,_>>()?;
+    let box_entries = db.connection.prepare("SELECT id,box_id,owned_card_id,printing_id,quantity FROM box_entries")?.query_map([], |r| Ok(BoxEntry { id:r.get(0)?, box_id:r.get(1)?, owned_card_id:r.get(2)?, printing_id:r.get(3)?, quantity:r.get(4)? }))?.collect::<Result<Vec<_>,_>>()?;
     serde_json::to_string(&Backup {
         format_version: 1,
         owned_cards: cards,
         locations,
+        boxes,
+        box_entries,
     })
     .map_err(|e| AppError::Import(e.to_string()))
 }
@@ -63,12 +69,14 @@ pub fn import(db: &Database, input: &str) -> AppResult<()> {
     for location in backup.locations {
         tx.execute("INSERT INTO locations(id,name,kind,archived) VALUES (?1,?2,?3,?4) ON CONFLICT(id) DO UPDATE SET name=excluded.name,kind=excluded.kind,archived=excluded.archived", params![location.id, location.name, location.kind, location.archived as i64])?;
     }
+    for b in backup.boxes { tx.execute("INSERT INTO boxes(id,name,archived) VALUES (?1,?2,?3) ON CONFLICT(id) DO UPDATE SET name=excluded.name,archived=excluded.archived", params![b.id,b.name,b.archived as i64])?; }
     for card in backup.owned_cards {
         if card.quantity <= 0 {
             return Err(AppError::Validation("quantity must be positive".into()));
         }
         tx.execute("INSERT INTO owned_cards(id,printing_id,quantity,language,foil,condition,notes) VALUES (?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(id) DO UPDATE SET printing_id=excluded.printing_id,quantity=excluded.quantity,language=excluded.language,foil=excluded.foil,condition=excluded.condition,notes=excluded.notes", params![card.id, card.printing_id, card.quantity, card.language, card.foil as i64, card.condition, card.notes])?;
     }
+    for e in backup.box_entries { if e.quantity <= 0 { return Err(AppError::Validation("quantity must be positive".into())); } tx.execute("INSERT INTO box_entries(id,box_id,owned_card_id,printing_id,quantity) VALUES (?1,?2,?3,?4,?5) ON CONFLICT(id) DO UPDATE SET box_id=excluded.box_id,owned_card_id=excluded.owned_card_id,printing_id=excluded.printing_id,quantity=excluded.quantity", params![e.id,e.box_id,e.owned_card_id,e.printing_id,e.quantity])?; }
     tx.commit()?;
     Ok(())
 }
