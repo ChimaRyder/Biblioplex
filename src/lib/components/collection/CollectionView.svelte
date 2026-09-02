@@ -61,6 +61,7 @@
   let bulkRemoving = false;
   $: activeFace = selectedCard?.faces?.[activeFaceIndex] ?? selectedCard?.faces?.[0];
   $: previewFace = previewCard?.faces?.[0];
+  $: allDisplayedCardsSelected = displayedCards.length > 0 && displayedCards.every((card) => selectedCardIds.has(card.id));
 
   $: availableSets = [...new Set<string>(cards.map((card) => card.set_code))].sort();
   $: selectedSets = new Set<string>([...selectedSets].filter((set: string) => availableSets.includes(set)));
@@ -154,6 +155,7 @@
   function selectFace(index: number) { activeFaceIndex = index; imageFailed = false; }
   function imageSource(card: Card) { const image = card.faces?.[0]?.image; return image?.cached_path || (connectionState === "stable" ? image?.remote_url : undefined); }
   function toggleCardSelection(id: string) { const next = new Set(selectedCardIds); if (next.has(id)) next.delete(id); else next.add(id); selectedCardIds = next; }
+  function toggleAllCardSelection(checked: boolean) { selectedCardIds = checked ? new Set(displayedCards.map((card) => card.id)) : new Set(); }
   function clearSelection() { selectedCardIds = new Set(); }
   async function removeSelectedCards() { if (!selectedCardIds.size || bulkRemoving) return; bulkRemoving = true; try { await invoke("remove_owned_cards", { ids: [...selectedCardIds] }); clearSelection(); await loadCollection(); } catch (err) { error = String(err); } finally { bulkRemoving = false; } }
   function enterGridView() { if (connectionState !== "stable" || viewMode === "grid") return; clearSelection(); viewMode = "grid"; imageLoading = new Set(displayedCards.filter((card) => imageSource(card)).map((card) => card.id)); imageFailedCards = new Set(); }
@@ -329,8 +331,18 @@
     <div class="overflow-x-auto">
       <Table.Root>
         <Table.Header>
-          <Table.Row>
-            <Table.Head><span class="sr-only">Select</span></Table.Head>
+          <Table.Row class="group">
+            <Table.Head>
+              <Checkbox
+                checked={allDisplayedCardsSelected}
+                disabled={!displayedCards.length}
+                aria-label="Select all cards"
+                class={`opacity-0 group-hover:opacity-100 ${allDisplayedCardsSelected ? "opacity-100" : ""}`}
+                onclick={(event: MouseEvent) => event.stopPropagation()}
+                onCheckedChange={(checked) => toggleAllCardSelection(checked)}
+              />
+              <span class="sr-only">Select all</span>
+            </Table.Head>
             <Table.Head><span class="sr-only">Add/Remove</span></Table.Head>
             <Table.Head>Card Name</Table.Head>
             <Table.Head>Mana Cost</Table.Head>
