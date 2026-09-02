@@ -8,8 +8,8 @@ use rusqlite::{params, OptionalExtension};
 pub fn upsert_catalog(db: &Database, cards: &[CatalogCard], version: &str) -> AppResult<()> {
     let tx = db.connection.unchecked_transaction()?;
     for card in cards {
-        tx.execute("INSERT INTO printings(id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id,colors) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12) ON CONFLICT(id) DO UPDATE SET name=excluded.name,set_code=excluded.set_code,collector_number=excluded.collector_number,rarity=excluded.rarity,oracle_text=excluded.oracle_text,mana_cost=excluded.mana_cost,card_type=excluded.card_type,power=excluded.power,toughness=excluded.toughness,scryfall_id=excluded.scryfall_id,colors=excluded.colors",
-            params![card.uuid, card.name, card.set_code, card.collector_number, card.rarity, card.oracle_text, card.mana_cost, card.card_type, card.power, card.toughness, card.scryfall_id, serde_json::to_string(&card.colors).unwrap()])?;
+        tx.execute("INSERT INTO printings(id,name,set_code,collector_number,rarity,oracle_text,mana_cost,mana_value,card_type,power,toughness,scryfall_id,colors) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13) ON CONFLICT(id) DO UPDATE SET name=excluded.name,set_code=excluded.set_code,collector_number=excluded.collector_number,rarity=excluded.rarity,oracle_text=excluded.oracle_text,mana_cost=excluded.mana_cost,mana_value=excluded.mana_value,card_type=excluded.card_type,power=excluded.power,toughness=excluded.toughness,scryfall_id=excluded.scryfall_id,colors=excluded.colors",
+            params![card.uuid, card.name, card.set_code, card.collector_number, card.rarity, card.oracle_text, card.mana_cost, card.mana_value, card.card_type, card.power, card.toughness, card.scryfall_id, serde_json::to_string(&card.colors).unwrap()])?;
         tx.execute("DELETE FROM card_faces WHERE printing_id=?1", [&card.uuid])?;
         let logical_faces = if card.faces.is_empty() {
             vec![CatalogFace { face_order: 0, name: card.name.clone(), mana_cost: card.mana_cost.clone(), card_type: card.card_type.clone(), oracle_text: card.oracle_text.clone(), power: card.power.clone(), toughness: card.toughness.clone(), scryfall_id: card.scryfall_id.clone(), cached_path: None, image_status: "missing".into() }]
@@ -37,7 +37,7 @@ pub fn search_catalog(db: &Database, query: &str, limit: i64) -> AppResult<Vec<C
     let limit = limit.clamp(1, 100);
     let pattern = format!("%{}%", query.trim());
     let mut statement = db.connection.prepare(
-        "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id
+        "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,mana_value,card_type,power,toughness,scryfall_id
                 ,colors
          FROM printings
          WHERE name LIKE ?1 COLLATE NOCASE
@@ -54,11 +54,11 @@ pub fn search_catalog(db: &Database, query: &str, limit: i64) -> AppResult<Vec<C
             collector_number: row.get(3)?,
             rarity: row.get(4)?,
             oracle_text: row.get(5)?,
-            mana_cost: row.get(6)?,
-            card_type: row.get(7)?,
-            power: row.get(8)?, toughness: row.get(9)?, scryfall_id: row.get(10)?,
+            mana_cost: row.get(6)?, mana_value: row.get(7)?,
+            card_type: row.get(8)?,
+            power: row.get(9)?, toughness: row.get(10)?, scryfall_id: row.get(11)?,
             faces: Vec::new(),
-            colors: row.get::<_, Option<String>>(11)?.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default(),
+            colors: row.get::<_, Option<String>>(12)?.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default(),
         })
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
@@ -106,7 +106,7 @@ pub fn find_owned_by_printing(db: &Database, printing_id: &str) -> AppResult<Vec
 pub fn find_catalog_card(db: &Database, printing_id: &str) -> AppResult<Option<CatalogCard>> {
     db.connection
         .query_row(
-            "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,card_type,power,toughness,scryfall_id,colors
+            "SELECT id,name,set_code,collector_number,rarity,oracle_text,mana_cost,mana_value,card_type,power,toughness,scryfall_id,colors
              FROM printings WHERE id=?1",
             [printing_id],
             |row| {
@@ -117,11 +117,11 @@ pub fn find_catalog_card(db: &Database, printing_id: &str) -> AppResult<Option<C
                     collector_number: row.get(3)?,
                     rarity: row.get(4)?,
                     oracle_text: row.get(5)?,
-                    mana_cost: row.get(6)?,
-                    card_type: row.get(7)?,
-                    power: row.get(8)?, toughness: row.get(9)?, scryfall_id: row.get(10)?,
+                    mana_cost: row.get(6)?, mana_value: row.get(7)?,
+                    card_type: row.get(8)?,
+                    power: row.get(9)?, toughness: row.get(10)?, scryfall_id: row.get(11)?,
                     faces: Vec::new(),
-                    colors: row.get::<_, Option<String>>(11)?.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default(),
+                    colors: row.get::<_, Option<String>>(12)?.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default(),
                 })
             },
         )
@@ -143,6 +143,7 @@ pub fn list_owned(
         String,
         String,
         Option<String>,
+        Option<f64>,
         Option<String>,
         Option<String>,
         Option<String>,
@@ -154,7 +155,7 @@ pub fn list_owned(
 > {
     let mut statement = db.connection.prepare(
         "SELECT o.id,o.printing_id,o.quantity,o.language,o.foil,o.condition,o.notes,
-                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type,p.rarity,p.oracle_text,p.power,p.toughness,p.scryfall_id
+                p.name,p.set_code,p.collector_number,p.mana_cost,p.mana_value,p.card_type,p.rarity,p.oracle_text,p.power,p.toughness,p.scryfall_id
          FROM owned_cards o JOIN printings p ON p.id=o.printing_id
          ORDER BY p.name COLLATE NOCASE",
     )?;
@@ -172,16 +173,11 @@ pub fn list_owned(
             row.get(7)?,
             row.get(8)?,
             row.get(9)?,
-            row.get(10)?,
-            row.get(11)?,
-            row.get(12)?,
-            row.get(13)?,
-            row.get(14)?,
-            row.get(15)?, row.get(16)?,
+            row.get(10)?, row.get(11)?, row.get(12)?, row.get(13)?, row.get(14)?, row.get(15)?, row.get(16)?, row.get(17)?,
         ))
     })?;
     let rows = rows.collect::<Result<Vec<_>, _>>()?;
-    rows.into_iter().map(|row| { let faces = faces_for_printing(db, &row.0.printing_id)?; Ok((row.0,row.1,row.2,row.3,row.4,row.5,row.6,row.7,row.8,row.9,row.10,faces)) }).collect()
+    rows.into_iter().map(|row| { let faces = faces_for_printing(db, &row.0.printing_id)?; Ok((row.0,row.1,row.2,row.3,row.4,row.5,row.6,row.7,row.8,row.9,row.10,row.11,faces)) }).collect()
 }
 
 pub fn search_owned(
@@ -194,6 +190,7 @@ pub fn search_owned(
         String,
         String,
         Option<String>,
+        Option<f64>,
         Option<String>,
         Option<String>,
         Option<String>,
@@ -206,7 +203,7 @@ pub fn search_owned(
     let pattern = format!("%{}%", query.trim());
     let mut statement = db.connection.prepare(
         "SELECT o.id,o.printing_id,o.quantity,o.language,o.foil,o.condition,o.notes,
-                p.name,p.set_code,p.collector_number,p.mana_cost,p.card_type,p.rarity,p.oracle_text,p.power,p.toughness,p.scryfall_id
+                p.name,p.set_code,p.collector_number,p.mana_cost,p.mana_value,p.card_type,p.rarity,p.oracle_text,p.power,p.toughness,p.scryfall_id
          FROM owned_cards o JOIN printings p ON p.id=o.printing_id
          WHERE p.name LIKE ?1 COLLATE NOCASE
             OR p.set_code LIKE ?1 COLLATE NOCASE
@@ -227,16 +224,11 @@ pub fn search_owned(
             row.get(7)?,
             row.get(8)?,
             row.get(9)?,
-            row.get(10)?,
-            row.get(11)?,
-            row.get(12)?,
-            row.get(13)?,
-            row.get(14)?,
-            row.get(15)?, row.get(16)?,
+            row.get(10)?, row.get(11)?, row.get(12)?, row.get(13)?, row.get(14)?, row.get(15)?, row.get(16)?, row.get(17)?,
         ))
     })?;
     let rows = rows.collect::<Result<Vec<_>, _>>()?;
-    rows.into_iter().map(|row| { let faces = faces_for_printing(db, &row.0.printing_id)?; Ok((row.0,row.1,row.2,row.3,row.4,row.5,row.6,row.7,row.8,row.9,row.10,faces)) }).collect()
+    rows.into_iter().map(|row| { let faces = faces_for_printing(db, &row.0.printing_id)?; Ok((row.0,row.1,row.2,row.3,row.4,row.5,row.6,row.7,row.8,row.9,row.10,row.11,faces)) }).collect()
 }
 
 pub fn faces_for_printing(db: &Database, printing_id: &str) -> AppResult<Vec<CatalogFace>> {
@@ -345,7 +337,7 @@ mod catalog_tests {
                     collector_number: "161".into(),
                     rarity: Some("common".into()),
                     oracle_text: None,
-                    mana_cost: None, colors: Vec::new(),
+                    mana_cost: None, mana_value: None, colors: Vec::new(),
                     card_type: None,
                     power: None,
                     toughness: None,
@@ -359,7 +351,7 @@ mod catalog_tests {
                     collector_number: "220".into(),
                     rarity: Some("uncommon".into()),
                     oracle_text: None,
-                    mana_cost: None, colors: Vec::new(),
+                    mana_cost: None, mana_value: None, colors: Vec::new(),
                     card_type: None,
                     power: None,
                     toughness: None,

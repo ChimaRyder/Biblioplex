@@ -15,7 +15,7 @@
   import { checkImageProvider, type ConnectionState } from "$lib/commands/connection";
 
   type CardFace = { face_order: number; name: string; mana_cost?: string; card_type?: string; power?: string; toughness?: string; oracle_text?: string; image: { cached_path?: string; remote_url?: string; status: "cached" | "missing" | "stale" | "unavailable" } };
-  type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; card_type?: string; colors?: string[]; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
+  type Card = { id: string; name: string; set_code: string; collector_number: string; mana_cost?: string; mana_value?: number; card_type?: string; colors?: string[]; power?: string; toughness?: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string; rarity?: string; oracle_text?: string; faces: CardFace[] };
   type CatalogCard = { uuid: string; name: string; set_code: string; collector_number: string; rarity?: string };
   type DuplicateCard = { id: string; quantity: number; language: string; foil: boolean; condition: string; notes?: string };
 
@@ -29,6 +29,7 @@
   let duplicateCard: { catalog: CatalogCard; rows: DuplicateCard[] } | null = null;
   let quickOpen = false;
   let sortBy = "name";
+  let sortAscending = true;
   let selectedColors = new Set<string>();
   let selectedTypes = new Set<string>();
   let selectedSets = new Set<string>();
@@ -64,11 +65,24 @@
   $: availableSets = [...new Set<string>(cards.map((card) => card.set_code))].sort();
   $: selectedSets = new Set<string>([...selectedSets].filter((set: string) => availableSets.includes(set)));
   $: displayedCards = cards.filter((card) => {
-    const cardColors = card.colors?.length ? card.colors : manaTokens(card.mana_cost).filter((token) => ["w", "u", "b", "r", "g"].includes(token)).map((token) => ({ w: "White", u: "Blue", b: "Black", r: "Red", g: "Green" } as Record<string, string>)[token]);
+    const cardColors = card.colors?.length
+      ? card.colors.map((color) => color.toUpperCase())
+      : manaTokens(card.mana_cost).filter((token) => ["w", "u", "b", "r", "g"].includes(token)).map((token) => token.toUpperCase());
     const matchesColor = !selectedColors.size || (selectedColors.has("Colorless") && !cardColors.length) || cardColors.some((color) => selectedColors.has(color));
     const matchesType = !selectedTypes.size || [...selectedTypes].some((type) => card.card_type?.split(/[—–-]/)[0].split(" ").includes(type));
     return matchesColor && matchesType && (!selectedSets.size || selectedSets.has(card.set_code));
-  }).sort((a, b) => sortBy === "quantity" ? b.quantity - a.quantity : a.name.localeCompare(b.name));
+  }).sort((a, b) => {
+    const aValue = sortBy === "quantity" ? a.quantity : sortBy === "mana_value" ? a.mana_value : undefined;
+    const bValue = sortBy === "quantity" ? b.quantity : sortBy === "mana_value" ? b.mana_value : undefined;
+    let result: number;
+    if (sortBy === "name") result = a.name.localeCompare(b.name);
+    else if (aValue === undefined && bValue === undefined) result = a.name.localeCompare(b.name);
+    else if (aValue === undefined) result = 1;
+    else if (bValue === undefined) result = -1;
+    else result = aValue - bValue;
+    if (result === 0) result = a.name.localeCompare(b.name);
+    return sortAscending ? result : -result;
+  });
   $: totalCardQuantity = displayedCards.reduce((total, card) => total + card.quantity, 0);
   $: if (viewMode === "grid") clearPreview();
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
@@ -185,13 +199,21 @@
     </div>
     <Select.Root type="single" bind:value={sortBy}>
       <Select.Trigger class="h-10! min-w-32 rounded-md border-border bg-background px-3 text-foreground" aria-label="Sort collection">
-        {sortBy === "quantity" ? "Quantity" : "Card Name"}
+        {sortBy === "quantity" ? "Quantity" : sortBy === "mana_value" ? "Mana Value" : "Card Name"}
       </Select.Trigger>
       <Select.Content>
         <Select.Item value="name" label="Card Name">Card Name</Select.Item>
         <Select.Item value="quantity" label="Quantity">Quantity</Select.Item>
+        <Select.Item value="mana_value" label="Mana Value">Mana Value</Select.Item>
       </Select.Content>
     </Select.Root>
+    <Button variant="outline" size="icon" class={`h-10! w-10! ${sortAscending ? "hover:bg-primary! hover:text-primary-foreground" : "bg-primary! text-primary-foreground hover:text-primary-foreground"}`} aria-label={`${sortAscending ? "Ascending" : "Descending"}`} title={`${sortAscending ? "Ascending" : "Descending"}`} onclick={() => sortAscending = !sortAscending}>
+    {#if sortAscending}
+    <Icon name="sort-asc" size={15} />
+    {:else}
+    <Icon name="sort-desc" size={15} />
+    {/if}
+    </Button>
     <CollectionFilters bind:selectedColors bind:selectedTypes bind:selectedSets sets={availableSets} />
     <Button variant="outline" size="icon" class="h-10! w-10! hover:!bg-primary hover:!text-primary-foreground" aria-label="Add a card" title="Add a card" onclick={openQuickAdd}><Icon name="plus" size={18} /></Button>
   </div>

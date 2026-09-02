@@ -25,7 +25,7 @@ impl Database {
         self.connection.execute_batch(
             "PRAGMA foreign_keys = ON;
              CREATE TABLE IF NOT EXISTS catalog_metadata (id INTEGER PRIMARY KEY CHECK (id = 1), version TEXT NOT NULL, imported_at TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS printings (id TEXT PRIMARY KEY, name TEXT NOT NULL, set_code TEXT NOT NULL, collector_number TEXT NOT NULL, rarity TEXT, oracle_text TEXT, mana_cost TEXT, card_type TEXT, scryfall_id TEXT, colors TEXT);
+             CREATE TABLE IF NOT EXISTS printings (id TEXT PRIMARY KEY, name TEXT NOT NULL, set_code TEXT NOT NULL, collector_number TEXT NOT NULL, rarity TEXT, oracle_text TEXT, mana_cost TEXT, mana_value REAL, card_type TEXT, scryfall_id TEXT, colors TEXT);
              CREATE TABLE IF NOT EXISTS card_faces (printing_id TEXT NOT NULL REFERENCES printings(id) ON DELETE CASCADE, face_order INTEGER NOT NULL, name TEXT NOT NULL, mana_cost TEXT, card_type TEXT, oracle_text TEXT, power TEXT, toughness TEXT, scryfall_id TEXT, PRIMARY KEY(printing_id, face_order));
              CREATE TABLE IF NOT EXISTS image_cache_entries (id TEXT PRIMARY KEY, printing_id TEXT NOT NULL REFERENCES printings(id) ON DELETE CASCADE, face_order INTEGER NOT NULL DEFAULT 0, cached_path TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'cached', updated_at TEXT NOT NULL DEFAULT (datetime('now')));
              CREATE INDEX IF NOT EXISTS idx_printings_name ON printings(name);
@@ -44,6 +44,7 @@ impl Database {
                 "card_type",
                 "ALTER TABLE printings ADD COLUMN card_type TEXT",
             ),
+            ("mana_value", "ALTER TABLE printings ADD COLUMN mana_value REAL"),
             ("power", "ALTER TABLE printings ADD COLUMN power TEXT"),
             ("toughness", "ALTER TABLE printings ADD COLUMN toughness TEXT"),
             ("colors", "ALTER TABLE printings ADD COLUMN colors TEXT"),

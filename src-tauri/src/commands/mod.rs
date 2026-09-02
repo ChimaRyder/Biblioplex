@@ -11,6 +11,7 @@ pub struct OwnedCardView {
     pub set_code: String,
     pub collector_number: String,
     pub mana_cost: Option<String>,
+    pub mana_value: Option<f64>,
     pub colors: Vec<String>,
     pub card_type: Option<String>,
     pub quantity: i64,
@@ -132,12 +133,13 @@ pub fn list_owned_cards(state: State<'_, Mutex<Database>>) -> Result<Vec<OwnedCa
     services::list_owned(&db).map_err(db_error).map(|rows| {
         rows.into_iter()
             .map(
-                |(card, name, set_code, collector_number, mana_cost, card_type, rarity, oracle_text, power, toughness, scryfall_id, faces)| OwnedCardView {
+                |(card, name, set_code, collector_number, mana_cost, mana_value, card_type, rarity, oracle_text, power, toughness, scryfall_id, faces)| OwnedCardView {
                     id: card.id,
                     name: name.clone(),
                     set_code,
                     collector_number,
                     mana_cost: mana_cost.clone(),
+                    mana_value,
                     colors: repositories::colors_for_printing(&db, &card.printing_id).unwrap_or_default(),
                     card_type: card_type.clone(),
                     quantity: card.quantity,
@@ -170,12 +172,13 @@ pub fn search_owned_cards(
     Ok(rows
         .into_iter()
         .map(
-            |(card, name, set_code, collector_number, mana_cost, card_type, rarity, oracle_text, power, toughness, scryfall_id, faces)| OwnedCardView {
+            |(card, name, set_code, collector_number, mana_cost, mana_value, card_type, rarity, oracle_text, power, toughness, scryfall_id, faces)| OwnedCardView {
                 id: card.id,
                 name: name.clone(),
                 set_code,
                 collector_number,
                 mana_cost: mana_cost.clone(),
+                mana_value,
                 colors: repositories::colors_for_printing(&db, &card.printing_id).unwrap_or_default(),
                 card_type: card_type.clone(),
                 quantity: card.quantity,
@@ -212,6 +215,7 @@ pub fn add_owned_card(
             rarity: None,
             oracle_text: None,
             mana_cost: None,
+            mana_value: None,
             colors: Vec::new(),
             card_type: None,
             scryfall_id: None,
@@ -238,6 +242,7 @@ pub fn add_owned_card(
         set_code: request.set_code.trim().into(),
         collector_number: request.collector_number.trim().into(),
         mana_cost: None,
+        mana_value: None,
         colors: Vec::new(),
         card_type: None,
         quantity: card.quantity,
@@ -287,6 +292,7 @@ pub fn add_owned_catalog_card(
         set_code: catalog.set_code,
         collector_number: catalog.collector_number,
         mana_cost: catalog.mana_cost.clone(),
+        mana_value: catalog.mana_value,
         colors: catalog.colors.clone(),
         card_type: catalog.card_type.clone(),
         quantity: card.quantity,

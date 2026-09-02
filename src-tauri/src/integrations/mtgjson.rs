@@ -23,6 +23,8 @@ struct Card {
     text: Option<String>,
     #[serde(rename = "manaCost")]
     mana_cost: Option<String>,
+    #[serde(rename = "manaValue")]
+    mana_value: Option<f64>,
     #[serde(default)]
     colors: Vec<String>,
     #[serde(rename = "type")]
@@ -81,6 +83,7 @@ pub fn parse_all_printings(input: &str) -> AppResult<Vec<CatalogCard>> {
                 rarity: card.rarity.clone(),
                 oracle_text: card.text.clone(),
                 mana_cost: card.mana_cost.clone(),
+                mana_value: card.mana_value,
                 colors: card.colors.clone(),
                 card_type: card.card_type.clone(),
                 power: card.power.clone(),
@@ -98,9 +101,10 @@ mod tests {
     use super::parse_all_printings;
     #[test]
     fn projects_required_mtgjson_fields() {
-        let input = r#"{"data":{"TST":{"cards":[{"uuid":"1","name":"Example","number":"1","rarity":"common","text":"Draw a card.","identifiers":{"scryfallId":"sf1"}}]}}}"#;
+        let input = r#"{"data":{"TST":{"cards":[{"uuid":"1","name":"Example","number":"1","rarity":"common","manaValue":2.5,"text":"Draw a card.","identifiers":{"scryfallId":"sf1"}}]}}}"#;
         let cards = parse_all_printings(input).unwrap();
         assert_eq!(cards[0].name, "Example");
         assert_eq!(cards[0].scryfall_id.as_deref(), Some("sf1"));
+        assert_eq!(cards[0].mana_value, Some(2.5));
     }
 }

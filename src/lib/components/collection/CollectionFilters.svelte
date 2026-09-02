@@ -7,7 +7,14 @@
  export let selectedColors = new Set<string>();
  export let selectedTypes = new Set<string>();
  export let selectedSets = new Set<string>();
- const colors = ["White", "Blue", "Black", "Red", "Green", "Colorless"];
+ const colors = [
+  { code: "W", label: "White" },
+  { code: "U", label: "Blue" },
+  { code: "B", label: "Black" },
+  { code: "R", label: "Red" },
+  { code: "G", label: "Green" },
+  { code: "Colorless", label: "Colorless" }
+ ];
  const types = ["Creature", "Planeswalker", "Instant", "Enchantment", "Sorcery", "Land"];
  let colorOpen = true;
  let setOpen = true;
@@ -26,7 +33,7 @@
    <button type="button" class="mb-2 flex w-full items-center justify-between text-left text-xs font-bold uppercase tracking-wider text-muted" aria-expanded={colorOpen} aria-controls="filter-color-options" onclick={() => colorOpen = !colorOpen}><span>Color</span><Icon name="chevronDown" size={15} class={colorOpen ? "" : "-rotate-90"} /></button>
    {#if colorOpen}<div id="filter-color-options" class="grid grid-cols-2 gap-2">
     {#each colors as color}
-     <label class="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={selectedColors.has(color)} aria-label={`Filter by Color: ${color}`} onCheckedChange={(event) => selectedColors = toggle(selectedColors, color, event)} />{color}</label>
+     <label class="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={selectedColors.has(color.code)} aria-label={`Filter by Color: ${color.label}`} onCheckedChange={(event) => selectedColors = toggle(selectedColors, color.code, event)} />{color.label}</label>
     {/each}
    </div>{/if}
   </section>
