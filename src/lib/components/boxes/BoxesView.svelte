@@ -189,11 +189,14 @@
             {#each visibleEntries as entry}
             <Table.Row>
               <Table.Cell>
-                <strong class={entry.collection_quantity ? "text-foreground" : "text-muted-foreground"}>
+                <strong class={entry.collection_quantity ? "text-foreground" : "text-muted-foreground/75"}>
                   {entry.name}
                 </strong>
-                <small class="block text-xs text-muted">
-                  {entry.collection_quantity ? `${entry.collection_quantity} available` : "missing"}
+                <small class={`flex gap-1 text-xs ${entry.collection_quantity ? "text-muted-foreground" : "text-destructive"}`}>
+                  {#if !entry.collection_quantity}
+                    <Icon name="warning" size={14} />
+                  {/if}
+                  {entry.collection_quantity ? `${entry.collection_quantity} available` : "Missing"}
                 </small>
               </Table.Cell>
               <Table.Cell>
@@ -243,7 +246,7 @@
           {addQuery ? "No cards found." : "Search by card name, set, or collector number."}
         </Command.Empty>
         {#each results as card}
-        <Command.Item value={card.uuid} onSelect={() => add(card)} class={`rounded-md px-3 py-2 text-left ${card.collection_quantity ? "text-primary" : "text-muted-foreground"}`}>
+        <Command.Item value={card.uuid} onSelect={() => add(card)} class={`rounded-md px-3 py-2 text-left ${card.collection_quantity ? "text-primary" : "text-muted-foreground/75"}`}>
           <span>
             <strong class="block">{card.name}</strong>
             <small>{card.set_code} · {card.collector_number} {#if card.collection_quantity} · {card.collection_quantity} available{/if}</small>
