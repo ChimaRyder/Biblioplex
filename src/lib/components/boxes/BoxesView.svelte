@@ -21,8 +21,6 @@
   let query = "";
   let addQuery = "";
   let results: Catalog[] = [];
-  let ownedResults: Entry[] = [];
-  let source = "catalog";
   let newName = "";
   let loading = false;
   let error = "";
@@ -109,10 +107,9 @@
   }
 
   async function searchCatalog() {
-    if (!addQuery.trim()) { results = []; ownedResults = []; return; }
+    if (!addQuery.trim()) { results = []; return; }
     try {
-      if (source === "catalog") results = await invoke<Catalog[]>("catalog_search", { request: { query: addQuery, limit: 8 } });
-      else ownedResults = await invoke<Entry[]>("search_owned_cards", { request: { query: addQuery } });
+      results = await invoke<Catalog[]>("catalog_search", { request: { query: addQuery, limit: 8 } });
     } catch (exception) { error = String(exception); }
   }
 
@@ -122,13 +119,7 @@
     closeQuick(); await loadEntries();
   }
 
-  async function addOwned(card: Entry) {
-    if (!selected) return;
-    await invoke("add_box_entry", { boxId: selected.id, ownedCardId: card.id, printingId: card.printing_id, quantity: 1 });
-    closeQuick(); await loadEntries();
-  }
-
-  function closeQuick() { addQuery = ""; results = []; ownedResults = []; quickOpen = false; }
+  function closeQuick() { addQuery = ""; results = []; quickOpen = false; }
   async function remove(id: string) { await invoke("delete_box_entry", { id }); await loadEntries(); }
   async function startEditingName() { if (!selected) return; nameDraft = selected.name; isEditingName = true; await tick(); nameInput?.focus(); nameInput?.select(); }
   async function saveName() { if (!selected || !isEditingName) return; const name = nameDraft.trim(); if (!name || name === selected.name) { isEditingName = false; return; } await invoke("update_box", { id: selected.id, name }); selected = { ...selected, name }; boxes = boxes.map((box) => box.id === selected?.id ? { ...box, name } : box); isEditingName = false; }
@@ -175,10 +166,91 @@
         <CollectionFilters bind:selectedColors bind:selectedTypes bind:selectedSets sets={availableSets} />
         <Button variant="outline" size="icon" class="h-10! w-10!" aria-label="Quick Add" onclick={() => quickOpen = true}><Icon name="plus" size={18} /></Button>
       </div>
-      <div class="overflow-x-auto"><Table.Root><Table.Header><Table.Row><Table.Head>Card</Table.Head><Table.Head>Printing</Table.Head><Table.Head>Quantity</Table.Head><Table.Head>Source</Table.Head><Table.Head></Table.Head></Table.Row></Table.Header><Table.Body>{#each visibleEntries as entry}<Table.Row><Table.Cell><strong class={entry.collection_quantity ? "text-foreground" : "text-muted-foreground"}>{entry.name}</strong><small class="block text-xs text-muted">{entry.collection_quantity ? `${entry.collection_quantity} available` : "missing"}</small></Table.Cell><Table.Cell>{entry.set_code} · {entry.collector_number}</Table.Cell><Table.Cell>{entry.quantity}</Table.Cell><Table.Cell>{entry.catalog_only ? "Catalog" : "Owned"}</Table.Cell><Table.Cell><Button variant="ghost" size="icon" class="size-7" aria-label={`Remove ${entry.name}`} onclick={() => remove(entry.id)}><Icon name="trash" size={14} /></Button></Table.Cell></Table.Row>{:else}<Table.Row><Table.Cell colspan={5} class="p-8 text-center text-muted">{loading ? "Loading…" : "This Box is empty."}</Table.Cell></Table.Row>{/each}</Table.Body></Table.Root></div>
-    {:else}<p class="py-16 text-center text-muted">Create a Box to start organizing cards.</p>{/if}
-    {#if error}<p class="mt-4 text-sm text-destructive">{error}</p>{/if}
+      <div class="overflow-x-auto">
+        <Table.Root>
+          <Table.Header>
+            <Table.Row>
+              <Table.Head>
+                Card
+              </Table.Head>
+              <Table.Head>
+                Printing
+              </Table.Head>
+              <Table.Head>
+                Quantity
+              </Table.Head>
+              <Table.Head>
+                Source
+              </Table.Head>
+              <Table.Head></Table.Head>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {#each visibleEntries as entry}
+            <Table.Row>
+              <Table.Cell>
+                <strong class={entry.collection_quantity ? "text-foreground" : "text-muted-foreground"}>
+                  {entry.name}
+                </strong>
+                <small class="block text-xs text-muted">
+                  {entry.collection_quantity ? `${entry.collection_quantity} available` : "missing"}
+                </small>
+              </Table.Cell>
+              <Table.Cell>
+                {entry.set_code} · {entry.collector_number}
+              </Table.Cell>
+              <Table.Cell>
+                {entry.quantity}
+              </Table.Cell>
+              <Table.Cell>
+                {entry.catalog_only ? "Catalog" : "Owned"}
+              </Table.Cell>
+              <Table.Cell>
+                <Button variant="ghost" size="icon" class="size-7" aria-label={`Remove ${entry.name}`} onclick={() => remove(entry.id)}>
+                  <Icon name="trash" size={14} />
+                </Button>
+              </Table.Cell>
+            </Table.Row>
+            {:else}
+            <Table.Row>
+              <Table.Cell colspan={5} class="p-8 text-center text-muted">
+                {loading ? "Loading…" : "This Box is empty."}
+              </Table.Cell>
+            </Table.Row>
+            {/each}
+          </Table.Body>
+        </Table.Root>
+      </div>
+    {:else}
+      <p class="py-16 text-center text-muted">
+        Create a Box to start organizing cards.
+      </p>
+    {/if}
+    {#if error}
+      <p class="mt-4 text-sm text-destructive">
+        {error}
+      </p>
+    {/if}
   </section>
 </div>
 
-<Dialog.Root bind:open={quickOpen}><Dialog.Content class="max-w-xl overflow-hidden border-border bg-panel-raised p-0 text-foreground"><Command.Root shouldFilter={false}><Command.Input bind:value={addQuery} oninput={searchCatalog} autofocus class="h-12 w-full bg-transparent text-sm" placeholder="Add a card…" aria-label="Search cards to add" /><Command.List class="max-h-80 p-2"><Command.Empty class="p-5 text-center text-sm text-muted">{addQuery ? "No cards found." : "Search by card name, set, or collector number."}</Command.Empty><div class="mb-2 flex gap-1"><Button variant={source === "catalog" ? "secondary" : "ghost"} size="sm" onclick={() => { source = "catalog"; ownedResults = []; searchCatalog(); }}>Catalog</Button><Button variant={source === "owned" ? "secondary" : "ghost"} size="sm" onclick={() => { source = "owned"; results = []; searchCatalog(); }}>Owned</Button></div>{#each results as card}<Command.Item value={card.uuid} onSelect={() => add(card)} class={`flex justify-between rounded-md px-3 py-2 text-left ${card.collection_quantity ? "text-foreground" : "text-muted-foreground"}`}><span><strong class="block">{card.name}</strong><small>{card.set_code} · {card.collector_number}</small></span></Command.Item>{/each}{#each ownedResults as card}<Command.Item value={card.id} onSelect={() => addOwned(card)} class="rounded-md px-3 py-2 text-left"><strong class="block">{card.name}</strong><small class="text-muted">{card.set_code} · {card.collector_number} · {card.quantity} available</small></Command.Item>{/each}</Command.List></Command.Root></Dialog.Content></Dialog.Root>
+<Dialog.Root bind:open={quickOpen}>
+  <Dialog.Content class="max-w-xl overflow-hidden border-border bg-panel-raised p-0 text-foreground" showCloseButton={false}>
+    <Command.Root shouldFilter={false}>
+      <Command.Input bind:value={addQuery} oninput={searchCatalog} autofocus class="h-12 w-full bg-transparent text-sm" placeholder="Add a card…" aria-label="Search cards to add" />
+      <Command.List class="max-h-80 p-2">
+        <Command.Empty class="p-5 text-center text-sm text-muted">
+          {addQuery ? "No cards found." : "Search by card name, set, or collector number."}
+        </Command.Empty>
+        {#each results as card}
+        <Command.Item value={card.uuid} onSelect={() => add(card)} class={`rounded-md px-3 py-2 text-left ${card.collection_quantity ? "text-primary" : "text-muted-foreground"}`}>
+          <span>
+            <strong class="block">{card.name}</strong>
+            <small>{card.set_code} · {card.collector_number} {#if card.collection_quantity} · {card.collection_quantity} available{/if}</small>
+          </span>
+        </Command.Item>
+        {/each}
+      </Command.List>
+    </Command.Root>
+  </Dialog.Content>
+</Dialog.Root>
