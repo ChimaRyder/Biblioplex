@@ -21,16 +21,20 @@
     SquaresFourIcon,
     FunnelIcon,
     SortAscendingIcon,
-    SortDescendingIcon
+    SortDescendingIcon,
+    CaretDoubleLeftIcon,
+    CaretDoubleRightIcon,
+    CaretLeftIcon,
+    CaretRightIcon
   } from "phosphor-svelte";
   import type { IconWeight } from "phosphor-svelte";
 
-  export let name: "grid" | "list" | "box" | "deck" | "settings" | "search" | "plus" | "trash" | "x" | "upload" | "download" | "chevronDown" | "filter" | "arrowUpDown" | "sparkles" | "pencil" | "minus" | "check" | "circle" | "astroid" | "sort-asc" | "sort-desc" = "grid";
+  export let name: "grid" | "list" | "box" | "deck" | "settings" | "search" | "plus" | "trash" | "x" | "upload" | "download" | "chevronDown" | "filter" | "arrowUpDown" | "sparkles" | "pencil" | "minus" | "check" | "circle" | "astroid" | "sort-asc" | "sort-desc" | "first" | "last" | "previous" | "next" = "grid";
   export let size = 16;
   export let weight: IconWeight = "regular";
   export let color = "currentColor";
 
-  const icons = { grid: SquaresFourIcon, list: ListBulletsIcon, box: TrayIcon, deck: StackIcon, settings: GearSixIcon, search: MagnifyingGlassIcon, plus: PlusIcon, pencil: PencilSimpleIcon, trash: TrashIcon, x: X, upload: UploadSimpleIcon, download: DownloadSimpleIcon, chevronDown: CaretDownIcon, filter: FunnelIcon, arrowUpDown: ArrowsDownUpIcon, sparkles: SparkleIcon, minus: MinusIcon, check: CheckIcon, circle: CircleIcon, astroid: StarFourIcon, "sort-asc": SortAscendingIcon, "sort-desc": SortDescendingIcon };
+  const icons = { grid: SquaresFourIcon, list: ListBulletsIcon, box: TrayIcon, deck: StackIcon, settings: GearSixIcon, search: MagnifyingGlassIcon, plus: PlusIcon, pencil: PencilSimpleIcon, trash: TrashIcon, x: X, upload: UploadSimpleIcon, download: DownloadSimpleIcon, chevronDown: CaretDownIcon, filter: FunnelIcon, arrowUpDown: ArrowsDownUpIcon, sparkles: SparkleIcon, minus: MinusIcon, check: CheckIcon, circle: CircleIcon, astroid: StarFourIcon, "sort-asc": SortAscendingIcon, "sort-desc": SortDescendingIcon, first: CaretDoubleLeftIcon, last: CaretDoubleRightIcon, previous: CaretLeftIcon, next: CaretRightIcon };
   $: IconComponent = icons[name];
 </script>
 
