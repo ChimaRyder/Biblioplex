@@ -35,6 +35,11 @@
   let selectedSets = new Set<string>();
   let availableSets: string[] = [];
   let displayedCards: Card[] = [];
+  let pagedCards: Card[] = [];
+  let currentPage = 1;
+  let pageSize = 10;
+  let pageSizeValue = "10";
+  let previousPaginationResetKey = "";
   let viewMode: "list" | "grid" = "list";
   let imageLoading = new Set<string>();
   let imageFailedCards = new Set<string>();
@@ -85,6 +90,14 @@
     return sortAscending ? result : -result;
   });
   $: totalCardQuantity = displayedCards.reduce((total, card) => total + card.quantity, 0);
+  $: totalPages = Math.max(1, Math.ceil(displayedCards.length / pageSize));
+  $: paginationResetKey = `${collectionQuery}|${sortBy}|${sortAscending}|${[...selectedColors].sort().join(",")}|${[...selectedTypes].sort().join(",")}|${[...selectedSets].sort().join(",")}`;
+  $: if (paginationResetKey !== previousPaginationResetKey) {
+    previousPaginationResetKey = paginationResetKey;
+    currentPage = 1;
+  }
+  $: currentPage = Math.min(currentPage, totalPages);
+  $: pagedCards = displayedCards.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   $: if (viewMode === "grid") clearPreview();
   function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
   const oracleSymbolClasses: Record<string, string> = {
@@ -155,8 +168,10 @@
   function selectFace(index: number) { activeFaceIndex = index; imageFailed = false; }
   function imageSource(card: Card) { const image = card.faces?.[0]?.image; return image?.cached_path || (connectionState === "stable" ? image?.remote_url : undefined); }
   function toggleCardSelection(id: string) { const next = new Set(selectedCardIds); if (next.has(id)) next.delete(id); else next.add(id); selectedCardIds = next; }
-  function toggleAllCardSelection(checked: boolean) { selectedCardIds = checked ? new Set(displayedCards.map((card) => card.id)) : new Set(); }
+  function toggleAllCardSelection(checked: boolean) { selectedCardIds = checked ? new Set(pagedCards.map((card) => card.id)) : new Set(); }
   function clearSelection() { selectedCardIds = new Set(); }
+  function changePageSize(value: string | undefined) { pageSizeValue = value ?? "10"; pageSize = Number(pageSizeValue); currentPage = 1; }
+  function goToPage(page: number) { currentPage = Math.max(1, Math.min(page, totalPages)); }
   async function removeSelectedCards() { if (!selectedCardIds.size || bulkRemoving) return; bulkRemoving = true; try { await invoke("remove_owned_cards", { ids: [...selectedCardIds] }); clearSelection(); await loadCollection(); } catch (err) { error = String(err); } finally { bulkRemoving = false; } }
   function enterGridView() { if (connectionState !== "stable" || viewMode === "grid") return; clearSelection(); viewMode = "grid"; imageLoading = new Set(displayedCards.filter((card) => imageSource(card)).map((card) => card.id)); imageFailedCards = new Set(); }
   function markImageLoading(id: string) { imageLoading = new Set(imageLoading).add(id); }
@@ -175,7 +190,7 @@
     loadCollection(""); refreshConnection();
     const onCollectionImported = () => loadCollection(collectionQuery);
     const onNetworkChange = () => refreshConnection();
-    const onPointerOver = (event: PointerEvent) => { if (viewMode !== "list") return; const row = (event.target as HTMLElement).closest("tbody tr") as HTMLElement | null; if (!row || connectionState !== "stable") return; const rows = [...row.parentElement!.children]; const card = displayedCards[rows.indexOf(row)]; if (card) schedulePreview(card, event, row); };
+    const onPointerOver = (event: PointerEvent) => { if (viewMode !== "list") return; const row = (event.target as HTMLElement).closest("tbody tr") as HTMLElement | null; if (!row || connectionState !== "stable") return; const rows = [...row.parentElement!.children]; const card = pagedCards[rows.indexOf(row)]; if (card) schedulePreview(card, event, row); };
     const onPointerOut = (event: PointerEvent) => { const row = (event.target as HTMLElement).closest("tbody tr"); if (row && !(event.relatedTarget as Node | null)?.parentElement?.closest?.("tbody tr")) clearPreview(); };
     document.addEventListener("pointerover", onPointerOver); document.addEventListener("pointerout", onPointerOut);
     window.addEventListener("online", onNetworkChange); window.addEventListener("offline", onNetworkChange);
@@ -335,7 +350,7 @@
             <Table.Head>
               <Checkbox
                 checked={allDisplayedCardsSelected}
-                disabled={!displayedCards.length}
+                disabled={!pagedCards.length}
                 aria-label="Select all cards"
                 class={`opacity-0 group-hover:opacity-100 ${allDisplayedCardsSelected ? "opacity-100" : ""}`}
                 onclick={(event: MouseEvent) => event.stopPropagation()}
@@ -352,7 +367,7 @@
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {#each displayedCards as card (card.id)}
+          {#each pagedCards as card (card.id)}
             <Table.Row
               class="group cursor-pointer text-muted-foreground"
               tabindex="0"
@@ -399,7 +414,7 @@
     </div>
   {:else}
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {#each displayedCards as card (card.id)}
+      {#each pagedCards as card (card.id)}
         {@const face = card.faces?.[0]}
         {@const src = imageSource(card)}
         <article class="overflow-hidden transition-transform duration-200 ease-out hover:z-10 hover:scale-[1.03]">
@@ -432,5 +447,27 @@
         </article>
       {/each}
     </div>
+  {/if}
+  {#if displayedCards.length > 0}
+    <nav class="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5" aria-label="Collection pagination">
+      <label class="flex items-center gap-2 text-sm text-muted">
+        <span>Cards per page</span>
+        <Select.Root type="single" value={pageSizeValue} onValueChange={changePageSize}>
+          <Select.Trigger class="w-20" aria-label="Cards per page">{pageSize}</Select.Trigger>
+          <Select.Content>
+            {#each [10, 25, 50, 100] as option}
+              <Select.Item value={String(option)} label={String(option)}>{option}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </label>
+      <div class="flex items-center gap-2">
+        <span class="min-w-24 text-center text-sm text-muted" aria-live="polite">Page {currentPage} of {totalPages}</span>
+        <Button variant="outline" size="icon" aria-label="First page" title="First page" disabled={currentPage === 1 || totalPages === 1} onclick={() => goToPage(1)}><Icon name="first" size={15} /></Button>
+        <Button variant="outline" size="icon" aria-label="Previous page" title="Previous page" disabled={currentPage === 1 || totalPages === 1} onclick={() => goToPage(currentPage - 1)}><Icon name="previous" size={15} /></Button>
+        <Button variant="outline" size="icon" aria-label="Next page" title="Next page" disabled={currentPage === totalPages || totalPages === 1} onclick={() => goToPage(currentPage + 1)}><Icon name="next" size={15} /></Button>
+        <Button variant="outline" size="icon" aria-label="Last page" title="Last page" disabled={currentPage === totalPages || totalPages === 1} onclick={() => goToPage(totalPages)}><Icon name="last" size={15} /></Button>
+      </div>
+    </nav>
   {/if}
 </section>
