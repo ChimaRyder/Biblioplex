@@ -1,12 +1,15 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { tick } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import Icon from "../ui/Icon.svelte";
+  import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "$lib/components/ui/dropdown-menu";
   type Box = { id:string; name:string; archived:boolean };
   type Entry = { id:string; box_id:string; owned_card_id?:string; printing_id:string; quantity:number; name:string; set_code:string; collector_number:string; catalog_only:boolean };
   type Catalog = { uuid:string; name:string; set_code:string; collector_number:string };
-  let boxes:Box[]=[]; let selected:Box|null=null; let entries:Entry[]=[]; let query=""; let addQuery=""; let results:Catalog[]=[]; let ownedResults:Entry[]=[]; let source="catalog"; let newName=""; let loading=false; let error="";
+  let boxes:Box[]=[]; let selected:Box|null=null; let entries:Entry[]=[]; let query=""; let addQuery=""; let results:Catalog[]=[]; let ownedResults:Entry[]=[]; let source="catalog"; let newName=""; let loading=false; let error=""; let isEditingName=false; let nameDraft=""; let nameInput:HTMLInputElement;
+  $: totalCards = entries.reduce((total, entry) => total + entry.quantity, 0);
   async function loadBoxes(){ boxes=await invoke<Box[]>("list_boxes",{archived:false}); if(!selected&&boxes[0]) selected=boxes[0]; if(selected) await loadEntries(); }
   async function loadEntries(){ if(!selected)return; loading=true; try{entries=await invoke<Entry[]>("list_box_entries",{boxId:selected.id,query});}catch(e){error=String(e)}finally{loading=false} }
   async function create(){const name=newName.trim()||window.prompt("Create Box","New Box")?.trim();if(!name)return;try{await invoke("create_box",{name});newName="";await loadBoxes()}catch(e){error=String(e)}}
@@ -16,11 +19,150 @@
   async function add(c:Catalog){if(!selected)return;await invoke("add_box_entry",{boxId:selected.id,ownedCardId:null,printingId:c.uuid,quantity:1});addQuery="";results=[];await loadEntries()}
   async function addOwned(c:Entry){if(!selected)return;await invoke("add_box_entry",{boxId:selected.id,ownedCardId:c.id,printingId:c.printing_id,quantity:1});addQuery="";ownedResults=[];await loadEntries()}
   async function archive(){if(!selected)return;await invoke("archive_box",{id:selected.id,archived:true});selected=null;entries=[];await loadBoxes()}
-  async function promptRename(){if(!selected)return;const name=window.prompt("Rename Box",selected.name);if(name?.trim()){await invoke("update_box",{id:selected.id,name});selected={...selected,name};await loadBoxes()}}
+  async function startEditingName(){if(!selected)return;nameDraft=selected.name;isEditingName=true;await tick();nameInput?.focus();nameInput?.select()}
+  function cancelEditingName(){if(isEditingName){nameDraft=selected?.name??"";isEditingName=false}}
+  async function saveName(){if(!selected||!isEditingName)return;const name=nameDraft.trim();if(!name||name===selected.name){cancelEditingName();return}try{await invoke("update_box",{id:selected.id,name});selected={...selected,name};boxes=boxes.map((box)=>box.id===selected?.id?{...box,name}:box);isEditingName=false}catch(e){error=String(e)}}
   async function remove(id:string){await invoke("delete_box_entry",{id});await loadEntries()}
   loadBoxes();
 </script>
 <div class="grid gap-6 lg:grid-cols-[220px_1fr]">
-  <aside class="rounded-xl border border-border bg-panel p-4"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl">Boxes</h2><Button size="icon" class="size-8" aria-label="Create Box" onclick={create}><Icon name="plus" size={16}/></Button></div><div class="mb-3 flex gap-2"><Input class="h-8" bind:value={newName} placeholder="New box name" onkeydown={(e)=>e.key==="Enter"&&create()}/></div>{#each boxes as box}<button class={`mb-1 w-full rounded-md px-3 py-2 text-left text-sm ${selected?.id===box.id?'bg-primary text-primary-foreground':'hover:bg-accent'}`} onclick={()=>{selected=box;loadEntries()}}>{box.name}</button>{:else}<p class="text-xs text-muted">No boxes yet.</p>{/each}</aside>
-  <section class="rounded-xl border border-border bg-panel p-6"><div class="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 class="font-serif text-3xl">{selected?.name ?? "Select a Box"}</h2><p class="text-sm text-muted">Independent card collection · {entries.length} entries</p></div>{#if selected}<div class="flex gap-2"><Button variant="outline" size="sm" onclick={promptRename}>Rename</Button><Button variant="outline" size="sm" onclick={archive}>Archive</Button><Button variant="destructive" size="sm" onclick={removeBox}>Delete</Button></div>{/if}</div>{#if selected}<div class="mb-4 grid gap-2 sm:grid-cols-2"><Input bind:value={query} placeholder="Search this box…" oninput={loadEntries}/><div class="relative"><div class="mb-1 flex gap-1"><Button variant={source==='catalog'?'secondary':'ghost'} size="sm" onclick={()=>{source='catalog';ownedResults=[];searchCatalog()}}>Catalog</Button><Button variant={source==='owned'?'secondary':'ghost'} size="sm" onclick={()=>{source='owned';results=[];searchCatalog()}}>Owned</Button></div><Input bind:value={addQuery} placeholder={`Add ${source} card…`} oninput={searchCatalog}/>{#if results.length||ownedResults.length}<div class="absolute z-10 mt-1 w-full rounded-md border border-border bg-panel-raised p-1 shadow-xl">{#each results as card}<button class="block w-full rounded px-2 py-1 text-left text-sm hover:bg-accent" onclick={()=>add(card)}>{card.name} <span class="text-muted">({card.set_code} {card.collector_number})</span></button>{/each}{#each ownedResults as card}<button class="block w-full rounded px-2 py-1 text-left text-sm hover:bg-accent" onclick={()=>addOwned(card)}>{card.name} <span class="text-muted">({card.set_code} {card.collector_number})</span></button>{/each}</div>{/if}</div></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="border-b border-border text-muted"><th class="p-2">Card</th><th class="p-2">Printing</th><th class="p-2">Quantity</th><th class="p-2">Source</th><th></th></tr></thead><tbody>{#each entries as entry}<tr class="border-b border-border"><td class="p-2 font-semibold">{entry.name}</td><td class="p-2">{entry.set_code} · {entry.collector_number}</td><td class="p-2">{entry.quantity}</td><td class="p-2">{entry.catalog_only?'Catalog':'Owned'}</td><td class="p-2"><Button variant="ghost" size="icon" class="size-7" aria-label={`Remove ${entry.name}`} onclick={()=>remove(entry.id)}><Icon name="trash" size={14}/></Button></td></tr>{:else}<tr><td colspan="5" class="p-8 text-center text-muted">{loading?'Loading…':'This Box is empty.'}</td></tr>{/each}</tbody></table></div>{:else}<p class="py-16 text-center text-muted">Create a Box to start organizing cards.</p>{/if}{#if error}<p class="mt-4 text-sm text-destructive">{error}</p>{/if}</section>
-</div>
+  <aside class="rounded-xl border border-border bg-panel p-4">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="font-serif text-xl">Boxes</h2>
+      <Button size="icon" class="size-8" aria-label="Create Box" onclick={create}>
+        <Icon name="plus" size={16}/></Button></div><div class="mb-3 flex gap-2">
+          <Input class="h-8" bind:value={newName} placeholder="New box name" onkeydown={(e)=>e.key==="Enter"&&create()}/>
+          </div>
+          {#each boxes as box}
+          <button class={`mb-1 w-full rounded-md px-3 py-2 text-left text-sm ${selected?.id===box.id?'bg-primary text-primary-foreground':'hover:bg-accent'}`} onclick={()=>{selected=box;loadEntries()}}>{box.name}</button>
+          {:else}
+          <p class="text-xs text-muted">No boxes yet.</p>
+          {/each}
+        </aside>
+  <section class="rounded-xl border border-border bg-panel p-6">
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div class="group flex min-w-0 items-center gap-2">
+        {#if selected}
+        {#if isEditingName}
+        <Input bind:this={nameInput} bind:value={nameDraft} aria-label="Box name" class="h-10 max-w-full font-serif text-3xl" onkeydown={(event)=>{if(event.key==='Enter')saveName();if(event.key==='Escape')cancelEditingName()}} onblur={saveName}/>
+          {:else}
+          <h2 class="font-serif text-3xl">
+            {selected.name}
+          </h2>
+          <span class="inline-flex min-w-7 items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-foreground" aria-label={`${totalCards} cards`}>{totalCards}</span>
+          <Button variant="ghost" size="icon" class="size-7 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" aria-label="Rename Box" title="Rename Box" onclick={startEditingName}>
+            <Icon name="pencil" size={15}/>
+          </Button>
+          {/if}
+          {:else}
+          <h2 class="font-serif text-3xl">
+            Select a Box
+          </h2>
+          {/if}
+        </div>
+        {#if selected}
+        <DropdownMenu>
+          <DropdownMenuTrigger class="inline-flex size-8 items-center justify-center rounded-md hover:bg-accent" aria-label="Box settings"><Icon name="dots-three-vertical" size={18}/></DropdownMenuTrigger><DropdownMenuContent align="end">
+            <DropdownMenuItem onclick={() => {}}>
+              <Icon name="star" size={15}/>
+              Favorite
+            </DropdownMenuItem>
+            <DropdownMenuItem onclick={archive}>
+              <Icon name="archive" size={15}/>
+              Archive
+            </DropdownMenuItem>
+            <DropdownMenuItem class="text-destructive" onclick={removeBox}>
+              <Icon name="trash" size={15}/>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {/if}
+      </div>
+      {#if selected}
+      <div class="mb-4 grid gap-2 sm:grid-cols-2">
+        <Input bind:value={query} placeholder="Search this box…" oninput={loadEntries}/>
+        <div class="relative">
+          <div class="mb-1 flex gap-1">
+            <Button variant={source==='catalog'?'secondary':'ghost'} size="sm" onclick={()=>{source='catalog';ownedResults=[];searchCatalog()}}>
+              Catalog
+            </Button>
+            <Button variant={source==='owned'?'secondary':'ghost'} size="sm" onclick={()=>{source='owned';results=[];searchCatalog()}}>
+              Owned
+            </Button>
+          </div>
+          <Input bind:value={addQuery} placeholder={`Add ${source} card…`} oninput={searchCatalog}/>
+          {#if results.length||ownedResults.length}
+          <div class="absolute z-10 mt-1 w-full rounded-md border border-border bg-panel-raised p-1 shadow-xl">
+            {#each results as card}
+            <button class="block w-full rounded px-2 py-1 text-left text-sm hover:bg-accent" onclick={()=>add(card)}>
+              {card.name} 
+              <span class="text-muted">
+                ({card.set_code} {card.collector_number})
+              </span>
+            </button>
+            {/each}
+            {#each ownedResults as card}
+            <button class="block w-full rounded px-2 py-1 text-left text-sm hover:bg-accent" onclick={()=>addOwned(card)}>
+              {card.name} 
+              <span class="text-muted">
+                ({card.set_code} {card.collector_number})
+              </span>
+            </button>
+              {/each}
+            </div>
+            {/if}
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-border text-muted">
+                <th class="p-2">Card</th><th class="p-2">
+                  Printing
+                </th>
+                <th class="p-2">
+                  Quantity
+                </th>
+                <th class="p-2">
+                  Source
+                </th>
+                <th>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each entries as entry}
+              <tr class="border-b border-border">
+                <td class="p-2 font-semibold">
+                  {entry.name}
+                </td>
+                <td class="p-2">
+                  {entry.set_code} · {entry.collector_number}
+                </td>
+                <td class="p-2">{entry.quantity}</td>
+                <td class="p-2">{entry.catalog_only?'Catalog':'Owned'}</td>
+                <td class="p-2">
+                  <Button variant="ghost" size="icon" class="size-7" aria-label={`Remove ${entry.name}`} onclick={()=>remove(entry.id)}>
+                    <Icon name="trash" size={14}/>
+                  </Button>
+                </td>
+              </tr>
+              {:else}
+              <tr>
+                <td colspan="5" class="p-8 text-center text-muted">
+                  {loading?'Loading…':'This Box is empty.'}
+                </td>
+              </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else}
+      <p class="py-16 text-center text-muted">Create a Box to start organizing cards.</p>
+      {/if}
+      {#if error}
+      <p class="mt-4 text-sm text-destructive">{error}</p>
+      {/if}
+    </section>
+  </div>
