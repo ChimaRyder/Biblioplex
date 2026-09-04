@@ -32,7 +32,7 @@
   let quickOpen = false;
   let isEditingName = false;
   let nameDraft = "";
-  let nameInput: HTMLInputElement;
+  let nameInput: HTMLInputElement | null = null;
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
   $: availableSets = [...new Set(entries.map((entry) => entry.set_code))].sort();
@@ -143,7 +143,7 @@
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div class="group flex min-w-0 items-center gap-2">
         {#if selected}
-          {#if isEditingName}<Input bind:this={nameInput} bind:value={nameDraft} class="h-10 max-w-full font-serif text-3xl" onkeydown={(event) => event.key === "Enter" && saveName()} onblur={saveName} />
+          {#if isEditingName}<Input bind:ref={nameInput} bind:value={nameDraft} class="h-10 max-w-full field-sizing-content font-serif! text-3xl!" onkeydown={(event) => event.key === "Enter" && saveName()} onblur={saveName} />
           {:else}<h2 class="font-serif text-3xl">{selected.name}</h2><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-semibold">{totalCards}</span><Button variant="ghost" size="icon" class="size-7 opacity-0 group-hover:opacity-100" aria-label="Rename Box" onclick={startEditingName}><Icon name="pencil" size={15} /></Button>{/if}
         {:else}<h2 class="font-serif text-3xl">Select a Box</h2>{/if}
       </div>
