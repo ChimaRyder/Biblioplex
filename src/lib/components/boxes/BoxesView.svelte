@@ -12,7 +12,7 @@
   import CollectionFilters from "../collection/CollectionFilters.svelte";
 
   type Box = { id: string; name: string; archived: boolean };
-  type Entry = { id: string; box_id: string; owned_card_id?: string; printing_id: string; quantity: number; name: string; set_code: string; collector_number: string; catalog_only: boolean; rarity?: string; mana_value?: number; card_type?: string; colors?: string[]; collection_quantity: number };
+  type Entry = { id: string; box_id: string; owned_card_id?: string; printing_id: string; quantity: number; name: string; set_code: string; collector_number: string; catalog_only: boolean; rarity?: string; mana_cost?: string; mana_value?: number; card_type?: string; colors?: string[]; collection_quantity: number };
   type Catalog = { uuid: string; name: string; set_code: string; collector_number: string; rarity?: string; colors?: string[]; card_type?: string; mana_value?: number; collection_quantity?: number };
 
   let boxes: Box[] = [];
@@ -123,6 +123,7 @@
   async function remove(id: string) { await invoke("delete_box_entry", { id }); await loadEntries(); }
   async function startEditingName() { if (!selected) return; nameDraft = selected.name; isEditingName = true; await tick(); nameInput?.focus(); nameInput?.select(); }
   async function saveName() { if (!selected || !isEditingName) return; const name = nameDraft.trim(); if (!name || name === selected.name) { isEditingName = false; return; } await invoke("update_box", { id: selected.id, name }); selected = { ...selected, name }; boxes = boxes.map((box) => box.id === selected?.id ? { ...box, name } : box); isEditingName = false; }
+  function manaTokens(cost?: string) { return cost?.match(/\{[^}]+\}/g)?.map((token) => token.slice(1, -1).toLowerCase().replace("/", "")) ?? []; }
 
   loadBoxes();
 </script>
@@ -171,16 +172,16 @@
           <Table.Header>
             <Table.Row>
               <Table.Head>
-                Card
+                Card Name
+              </Table.Head>
+              <Table.Head>
+                Mana Cost
+              </Table.Head>
+              <Table.Head>
+                Type
               </Table.Head>
               <Table.Head>
                 Printing
-              </Table.Head>
-              <Table.Head>
-                Quantity
-              </Table.Head>
-              <Table.Head>
-                Source
               </Table.Head>
               <Table.Head></Table.Head>
             </Table.Row>
@@ -199,14 +200,21 @@
                   {entry.collection_quantity ? `${entry.collection_quantity} available` : "Missing"}
                 </small>
               </Table.Cell>
-              <Table.Cell>
-                {entry.set_code} · {entry.collector_number}
+              <Table.Cell class="mana-cell">
+                {#if manaTokens(entry.mana_cost).length}
+                  {#each manaTokens(entry.mana_cost) as token}<i class="ms ms-cost ms-{token}" aria-label={token}></i>{/each}
+                {:else}—{/if}
               </Table.Cell>
               <Table.Cell>
-                {entry.quantity}
+                <span class="text-muted-foreground">
+                {entry.card_type}
+                </span>
               </Table.Cell>
               <Table.Cell>
-                {entry.catalog_only ? "Catalog" : "Owned"}
+                <!-- {entry.catalog_only ? "Catalog" : "Owned"} -->
+                <span class="text-muted-foreground">
+                  {entry.set_code} · {entry.collector_number}
+                </span>
               </Table.Cell>
               <Table.Cell>
                 <Button variant="ghost" size="icon" class="size-7" aria-label={`Remove ${entry.name}`} onclick={() => remove(entry.id)}>
