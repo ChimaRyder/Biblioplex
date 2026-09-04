@@ -12,7 +12,7 @@
   import CollectionFilters from "../collection/CollectionFilters.svelte";
 
   type Box = { id: string; name: string; archived: boolean };
-  type Entry = { id: string; box_id: string; owned_card_id?: string; printing_id: string; quantity: number; name: string; set_code: string; collector_number: string; catalog_only: boolean; rarity?: string; mana_cost?: string; mana_value?: number; card_type?: string; colors?: string[]; collection_quantity: number };
+  type Entry = { id: string; box_id: string; owned_card_id?: string; printing_id: string; quantity: number; name: string; set_code: string; collector_number: string; rarity?: string; mana_cost?: string; mana_value?: number; card_type?: string; colors?: string[]; collection_quantity: number };
   type Catalog = { uuid: string; name: string; set_code: string; collector_number: string; rarity?: string; colors?: string[]; card_type?: string; mana_value?: number; collection_quantity?: number };
 
   let boxes: Box[] = [];
@@ -211,7 +211,6 @@
                 </span>
               </Table.Cell>
               <Table.Cell>
-                <!-- {entry.catalog_only ? "Catalog" : "Owned"} -->
                 <span class="text-muted-foreground">
                   {entry.set_code} · {entry.collector_number}
                 </span>
