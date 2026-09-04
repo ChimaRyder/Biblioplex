@@ -20,6 +20,22 @@ pub struct Location {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Box {
+    pub id: String,
+    pub name: String,
+    pub archived: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoxEntry {
+    pub id: String,
+    pub box_id: String,
+    pub owned_card_id: Option<String>,
+    pub printing_id: String,
+    pub quantity: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tag {
     pub id: String,
     pub name: String,

@@ -103,6 +103,17 @@ pub fn create_box(db: &Database, id: &str, name: &str) -> AppResult<()> {
         },
     )
 }
+pub fn create_independent_box(db: &Database, id: &str, name: &str) -> AppResult<()> {
+    repositories::create_box(db, id, name)
+}
+pub fn list_boxes(db: &Database, archived: bool) -> AppResult<Vec<crate::domain::Box>> { repositories::list_boxes(db, archived) }
+pub fn rename_box(db: &Database, id: &str, name: &str) -> AppResult<()> { repositories::update_box(db,id,name) }
+pub fn archive_box(db: &Database, id: &str, archived: bool) -> AppResult<()> { repositories::set_box_archived(db,id,archived) }
+pub fn delete_box(db: &Database, id: &str) -> AppResult<()> { repositories::delete_box(db,id) }
+pub fn add_box_entry(db: &Database, entry: &crate::domain::BoxEntry) -> AppResult<()> { repositories::add_box_entry(db,entry) }
+pub fn list_box_entries(db: &Database, id: &str, query: &str) -> AppResult<Vec<(crate::domain::BoxEntry, crate::domain::CatalogCard)>> { repositories::list_box_entries(db,id,query) }
+pub fn update_box_entry(db: &Database,id:&str,quantity:i64)->AppResult<()> { repositories::update_box_entry(db,id,quantity) }
+pub fn delete_box_entry(db: &Database,id:&str)->AppResult<()> { repositories::delete_box_entry(db,id) }
 pub fn create_deck(db: &Database, id: &str, name: &str) -> AppResult<()> {
     repositories::create_location(
         db,

@@ -241,9 +241,9 @@ Catalog rows use MTGJSON UUIDs and Scryfall IDs as indexed external identifiers.
 
 ## Allocation model
 
-The MVP treats an owned_cards record as a physical card or grouped quantity of identical physical cards. A location assignment connects it to either one Box or one Deck section.
+The MVP treats an owned_cards record as a physical card or grouped quantity of identical physical cards. Independent Box entries reference owned cards or catalog printings without consuming inventory; location assignments are reserved for physical-location and Deck allocation workflows.
 
-The allocation service enforces exactly one active location, non-negative quantities, available quantity limits, atomic movement, and valid Deck sections. Individual-copy tracking can later split grouped rows without changing the core concepts.
+The allocation service enforces non-negative quantities, available quantity limits, atomic movement, and valid Deck sections. Box membership is intentionally independent and may be duplicated across Boxes.
 
 ## MTGJSON import pipeline
 

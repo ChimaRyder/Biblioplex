@@ -9,7 +9,7 @@ The application prioritizes local ownership, physical organization, data portabi
 ## Goals
 
 - Maintain a searchable local inventory of owned cards.
-- Organize physical cards into user-defined Boxes and assembled Decks.
+- Organize cards into independent user-defined Boxes and assembled Decks.
 - Support user-defined Tags and filtering.
 - Provide an offline compact view and an optional image-based card grid.
 - Keep user data portable through versioned export and import.
@@ -33,10 +33,9 @@ Scanning, OCR, marketplace pricing, authentication, cloud hosting, peer-to-peer 
 
 ### MVP 2: Organization
 
-- Create, rename, archive, and delete Boxes.
-- Assign each physical card copy to exactly one current location.
-- Move cards between Boxes and Decks.
-- Prevent a physical copy from being allocated to multiple locations.
+- Create, rename, archive, and delete independent Boxes.
+- Add owned cards or catalog cards to multiple Boxes without changing collection inventory.
+- Store per-entry Box quantities independently from owned-card quantities.
 - Display Box contents with quantity totals and filters.
 
 ### MVP 3: Deck management
@@ -124,18 +123,18 @@ All user-created records use stable UUIDs. MTGJSON UUIDs and Scryfall identifier
 - **Card:** canonical card identity and normalized metadata.
 - **Printing:** set, collector number, rarity, artist, and printing-specific data.
 - **OwnedCard:** a physical copy, or an explicitly grouped quantity of identical copies.
-- **Box:** a user-defined physical storage location.
+- **Box:** an independent user-defined collection of owned-card or catalog-card references.
 - **Deck:** an assembled owned deck.
 - **DeckSection:** Mainboard, Sideboard, or Commander.
 - **Tag:** a user-defined label.
 - **CardTag:** many-to-many relationship between owned cards and Tags.
-- **LocationAssignment:** the current Box or Deck location of an owned card.
+- **LocationAssignment:** a physical-location or Deck allocation of an owned card.
 - **SyncMetadata:** source, import version, timestamps, and image-cache status.
 
 ### Ownership and allocation rules
 
-- Every owned card has one current location: a Box or a Deck.
-- A card assigned to a Deck is unavailable for assignment to another location unless moved first.
+- Box membership does not consume inventory or affect Deck allocation.
+- Cards and catalog printings may appear in multiple Boxes.
 - Deck assignment cannot exceed the available owned quantity.
 - Catalog updates may update metadata but must not remove user annotations, Tags, locations, or Deck assignments.
 - Removing catalog metadata must not silently delete an owned-card record.

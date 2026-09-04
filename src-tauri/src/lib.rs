@@ -41,6 +41,7 @@ pub fn run() {
             commands::import_collection_text,
             commands::catalog_search,
             commands::check_image_provider
+            ,commands::list_boxes, commands::create_box, commands::update_box, commands::archive_box, commands::delete_box, commands::list_box_entries, commands::add_box_entry, commands::update_box_entry, commands::delete_box_entry
         ])
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;

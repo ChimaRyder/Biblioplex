@@ -5,6 +5,30 @@ use std::sync::Mutex;
 use tauri::State;
 
 #[derive(Debug, Serialize)]
+pub struct BoxView { pub id: String, pub name: String, pub archived: bool }
+#[derive(Debug, Serialize)]
+pub struct BoxEntryView { pub id: String, pub box_id: String, pub owned_card_id: Option<String>, pub printing_id: String, pub quantity: i64, pub name: String, pub set_code: String, pub collector_number: String, pub rarity: Option<String>, pub mana_cost: Option<String>, pub mana_value: Option<f64>, pub card_type: Option<String>, pub colors: Vec<String>, pub catalog_only: bool, pub collection_quantity: i64 }
+
+#[tauri::command]
+pub fn list_boxes(state: State<'_, Mutex<Database>>, archived: bool) -> Result<Vec<BoxView>, String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::list_boxes(&db,archived).map_err(db_error).map(|v|v.into_iter().map(|b|BoxView{id:b.id,name:b.name,archived:b.archived}).collect()) }
+#[tauri::command]
+pub fn create_box(state: State<'_, Mutex<Database>>, name: String) -> Result<BoxView, String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; let id=uuid::Uuid::new_v4().to_string(); services::create_independent_box(&db,&id,&name).map_err(db_error)?; Ok(BoxView{id,name:name.trim().into(),archived:false}) }
+#[tauri::command]
+pub fn update_box(state: State<'_, Mutex<Database>>, id: String, name: String) -> Result<(), String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::rename_box(&db,&id,&name).map_err(db_error) }
+#[tauri::command]
+pub fn archive_box(state: State<'_, Mutex<Database>>, id: String, archived: bool) -> Result<(), String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::archive_box(&db,&id,archived).map_err(db_error) }
+#[tauri::command]
+pub fn delete_box(state: State<'_, Mutex<Database>>, id: String) -> Result<(), String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::delete_box(&db,&id).map_err(db_error) }
+#[tauri::command]
+pub fn list_box_entries(state: State<'_, Mutex<Database>>, box_id: String, query: String) -> Result<Vec<BoxEntryView>, String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::list_box_entries(&db,&box_id,&query).map_err(db_error).map(|v|v.into_iter().map(|(e,c)|{ let collection_quantity=db.connection.query_row("SELECT COALESCE(SUM(quantity),0) FROM owned_cards WHERE printing_id=?1", [&e.printing_id], |r| r.get(0)).unwrap_or(0); BoxEntryView{id:e.id,box_id:e.box_id,owned_card_id:e.owned_card_id.clone(),printing_id:e.printing_id,name:c.name,set_code:c.set_code,collector_number:c.collector_number,rarity:c.rarity,mana_cost:c.mana_cost,mana_value:c.mana_value,card_type:c.card_type,colors:c.colors,catalog_only:e.owned_card_id.is_none(),quantity:e.quantity,collection_quantity} }).collect()) }
+#[tauri::command]
+pub fn add_box_entry(state: State<'_, Mutex<Database>>, box_id: String, owned_card_id: Option<String>, printing_id: String, quantity: i64) -> Result<(), String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::add_box_entry(&db,&crate::domain::BoxEntry{id:uuid::Uuid::new_v4().to_string(),box_id,owned_card_id,printing_id,quantity}).map_err(db_error) }
+#[tauri::command]
+pub fn update_box_entry(state: State<'_, Mutex<Database>>, id: String, quantity: i64) -> Result<(), String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::update_box_entry(&db,&id,quantity).map_err(db_error) }
+#[tauri::command]
+pub fn delete_box_entry(state: State<'_, Mutex<Database>>, id: String) -> Result<(), String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::delete_box_entry(&db,&id).map_err(db_error) }
+
+#[derive(Debug, Serialize)]
 pub struct OwnedCardView {
     pub id: String,
     pub name: String,
@@ -90,6 +114,7 @@ pub struct CatalogCardView {
     pub colors: Vec<String>,
     pub card_type: Option<String>,
     pub scryfall_id: Option<String>,
+    pub collection_quantity: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -408,7 +433,7 @@ pub fn catalog_search(
             cards
                 .into_iter()
                 .map(|card| CatalogCardView {
-                    uuid: card.uuid,
+                    uuid: card.uuid.clone(),
                     name: card.name,
                     set_code: card.set_code,
                     collector_number: card.collector_number,
@@ -418,6 +443,7 @@ pub fn catalog_search(
                     colors: card.colors,
                     card_type: card.card_type,
                     scryfall_id: card.scryfall_id,
+                    collection_quantity: db.connection.query_row("SELECT COALESCE(SUM(quantity),0) FROM owned_cards WHERE printing_id=?1", [&card.uuid], |r| r.get(0)).unwrap_or(0),
                 })
                 .collect()
         })

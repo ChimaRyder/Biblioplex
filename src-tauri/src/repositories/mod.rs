@@ -1,6 +1,6 @@
 use crate::storage::Database;
 use crate::{
-    domain::{CatalogCard, CatalogFace, Location, OwnedCard, Tag},
+    domain::{Box, BoxEntry, CatalogCard, CatalogFace, Location, OwnedCard, Tag},
     error::{AppError, AppResult},
 };
 use rusqlite::{params, OptionalExtension};
@@ -280,6 +280,36 @@ pub fn create_location(db: &Database, location: &Location) -> AppResult<()> {
     )?;
     Ok(())
 }
+
+pub fn list_boxes(db: &Database, archived: bool) -> AppResult<Vec<Box>> {
+    let mut stmt = db.connection.prepare("SELECT id,name,archived FROM boxes WHERE archived=?1 ORDER BY name COLLATE NOCASE")?;
+    let rows = stmt.query_map([archived as i64], |r| Ok(Box { id: r.get(0)?, name: r.get(1)?, archived: r.get::<_, i64>(2)? != 0 }))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+pub fn create_box(db: &Database, id: &str, name: &str) -> AppResult<()> {
+    if name.trim().is_empty() { return Err(AppError::Validation("box name cannot be empty".into())); }
+    db.connection.execute("INSERT INTO boxes(id,name) VALUES (?1,?2)", params![id, name.trim()])?; Ok(())
+}
+pub fn update_box(db: &Database, id: &str, name: &str) -> AppResult<()> {
+    if name.trim().is_empty() { return Err(AppError::Validation("box name cannot be empty".into())); }
+    let n = db.connection.execute("UPDATE boxes SET name=?2 WHERE id=?1", params![id, name.trim()])?; if n == 0 { return Err(AppError::NotFound(id.into())); } Ok(())
+}
+pub fn set_box_archived(db: &Database, id: &str, archived: bool) -> AppResult<()> { let n = db.connection.execute("UPDATE boxes SET archived=?2 WHERE id=?1", params![id, archived as i64])?; if n == 0 { return Err(AppError::NotFound(id.into())); } Ok(()) }
+pub fn delete_box(db: &Database, id: &str) -> AppResult<()> { let n = db.connection.execute("DELETE FROM boxes WHERE id=?1", [id])?; if n == 0 { return Err(AppError::NotFound(id.into())); } Ok(()) }
+pub fn add_box_entry(db: &Database, entry: &BoxEntry) -> AppResult<()> {
+    if entry.quantity <= 0 { return Err(AppError::Validation("quantity must be positive".into())); }
+    let exists: bool = db.connection.query_row("SELECT EXISTS(SELECT 1 FROM boxes WHERE id=?1 AND archived=0)", [&entry.box_id], |r| r.get(0))?; if !exists { return Err(AppError::NotFound(entry.box_id.clone())); }
+    if let Some(id) = &entry.owned_card_id { let valid: bool = db.connection.query_row("SELECT EXISTS(SELECT 1 FROM owned_cards WHERE id=?1 AND printing_id=?2)", params![id, entry.printing_id], |r| r.get(0))?; if !valid { return Err(AppError::NotFound(id.clone())); } }
+    db.connection.execute("INSERT INTO box_entries(id,box_id,owned_card_id,printing_id,quantity) VALUES (?1,?2,?3,?4,?5)", params![entry.id, entry.box_id, entry.owned_card_id, entry.printing_id, entry.quantity])?; Ok(())
+}
+pub fn list_box_entries(db: &Database, box_id: &str, query: &str) -> AppResult<Vec<(BoxEntry, CatalogCard)>> {
+    let pattern = format!("%{}%", query.trim());
+    let mut stmt = db.connection.prepare("SELECT e.id,e.box_id,e.owned_card_id,e.printing_id,e.quantity,p.id,p.name,p.set_code,p.collector_number,p.rarity,p.oracle_text,p.mana_cost,p.mana_value,p.card_type,p.scryfall_id,p.colors FROM box_entries e JOIN printings p ON p.id=e.printing_id WHERE e.box_id=?1 AND (p.name LIKE ?2 COLLATE NOCASE OR p.set_code LIKE ?2 COLLATE NOCASE OR p.collector_number LIKE ?2 COLLATE NOCASE) ORDER BY p.name COLLATE NOCASE")?;
+    let rows = stmt.query_map(params![box_id, pattern], |r| Ok((BoxEntry { id:r.get(0)?, box_id:r.get(1)?, owned_card_id:r.get(2)?, printing_id:r.get(3)?, quantity:r.get(4)? }, CatalogCard { uuid:r.get(5)?, name:r.get(6)?, set_code:r.get(7)?, collector_number:r.get(8)?, rarity:r.get(9)?, oracle_text:r.get(10)?, mana_cost:r.get(11)?, mana_value:r.get(12)?, card_type:r.get(13)?, scryfall_id:r.get(14)?, colors:r.get::<_, Option<String>>(15)?.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default(), power:None, toughness:None, faces:Vec::new() })))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+pub fn update_box_entry(db: &Database, id: &str, quantity: i64) -> AppResult<()> { if quantity <= 0 { return Err(AppError::Validation("quantity must be positive".into())); } let n=db.connection.execute("UPDATE box_entries SET quantity=?2 WHERE id=?1", params![id,quantity])?; if n==0 { return Err(AppError::NotFound(id.into())); } Ok(()) }
+pub fn delete_box_entry(db: &Database, id: &str) -> AppResult<()> { let n=db.connection.execute("DELETE FROM box_entries WHERE id=?1", [id])?; if n==0 { return Err(AppError::NotFound(id.into())); } Ok(()) }
 
 pub fn assign(
     db: &Database,
