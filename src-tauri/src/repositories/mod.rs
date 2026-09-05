@@ -282,8 +282,8 @@ pub fn create_location(db: &Database, location: &Location) -> AppResult<()> {
 }
 
 pub fn list_boxes(db: &Database, archived: bool) -> AppResult<Vec<Box>> {
-    let mut stmt = db.connection.prepare("SELECT id,name,archived FROM boxes WHERE archived=?1 ORDER BY name COLLATE NOCASE")?;
-    let rows = stmt.query_map([archived as i64], |r| Ok(Box { id: r.get(0)?, name: r.get(1)?, archived: r.get::<_, i64>(2)? != 0 }))?;
+    let mut stmt = db.connection.prepare("SELECT b.id,b.name,b.archived,COUNT(DISTINCT e.printing_id) FROM boxes b LEFT JOIN box_entries e ON e.box_id=b.id WHERE b.archived=?1 GROUP BY b.id,b.name,b.archived ORDER BY b.name COLLATE NOCASE")?;
+    let rows = stmt.query_map([archived as i64], |r| Ok(Box { id: r.get(0)?, name: r.get(1)?, archived: r.get::<_, i64>(2)? != 0, entry_count: r.get(3)? }))?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 pub fn create_box(db: &Database, id: &str, name: &str) -> AppResult<()> {

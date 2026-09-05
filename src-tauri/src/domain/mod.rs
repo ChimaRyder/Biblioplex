@@ -24,6 +24,7 @@ pub struct Box {
     pub id: String,
     pub name: String,
     pub archived: bool,
+    pub entry_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

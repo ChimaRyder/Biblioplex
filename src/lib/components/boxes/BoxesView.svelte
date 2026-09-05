@@ -11,17 +11,19 @@
   import Icon from "../ui/Icon.svelte";
   import CollectionFilters from "../collection/CollectionFilters.svelte";
 
-  type Box = { id: string; name: string; archived: boolean };
+  type Box = { id: string; name: string; archived: boolean; entry_count: number };
   type Entry = { id: string; box_id: string; owned_card_id?: string; printing_id: string; quantity: number; name: string; set_code: string; collector_number: string; rarity?: string; mana_cost?: string; mana_value?: number; card_type?: string; colors?: string[]; collection_quantity: number };
   type Catalog = { uuid: string; name: string; set_code: string; collector_number: string; rarity?: string; colors?: string[]; card_type?: string; mana_value?: number; collection_quantity?: number };
 
   let boxes: Box[] = [];
   let selected: Box | null = null;
+  let view: "grid" | "detail" = "grid";
   let entries: Entry[] = [];
   let query = "";
   let addQuery = "";
   let results: Catalog[] = [];
   let newName = "";
+  let createOpen = false;
   let loading = false;
   let error = "";
   let sortBy = "name";
@@ -60,7 +62,6 @@
 
   async function loadBoxes() {
     boxes = await invoke<Box[]>("list_boxes", { archived: false });
-    if (!selected && boxes[0]) selected = boxes[0];
     if (selected) await loadEntries();
   }
 
@@ -88,22 +89,36 @@
   }
 
   async function create() {
-    const name = newName.trim() || window.prompt("Create Box", "New Box")?.trim();
+    const name = newName.trim();
     if (!name) return;
     try { await invoke("create_box", { name }); newName = ""; await loadBoxes(); }
     catch (exception) { error = String(exception); }
   }
 
+  async function createAndOpen() {
+    const name = newName.trim();
+    if (!name) return;
+    try {
+      const created = await invoke<Box>("create_box", { name });
+      newName = "";
+      createOpen = false;
+      boxes = [...boxes, created].sort((a, b) => a.name.localeCompare(b.name));
+      selected = created;
+      view = "detail";
+      await loadEntries();
+    } catch (exception) { error = String(exception); }
+  }
+
   async function removeBox() {
     if (!selected) return;
     await invoke("delete_box", { id: selected.id });
-    selected = null; entries = []; await loadBoxes();
+    selected = null; entries = []; view = "grid"; await loadBoxes();
   }
 
   async function archive() {
     if (!selected) return;
     await invoke("archive_box", { id: selected.id, archived: true });
-    selected = null; entries = []; await loadBoxes();
+    selected = null; entries = []; view = "grid"; await loadBoxes();
   }
 
   async function searchCatalog() {
@@ -128,22 +143,27 @@
   loadBoxes();
 </script>
 
-<div class="grid gap-6 lg:grid-cols-[220px_1fr]">
-  <aside class="rounded-xl border border-border bg-panel p-4">
-    <div class="mb-3 flex items-center justify-between">
-      <h2 class="font-serif text-xl">Boxes</h2>
-      <Button size="icon" class="size-8" aria-label="Create Box" onclick={create}><Icon name="plus" size={16} /></Button>
+{#if view === "grid"}
+  <section class="space-y-6">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {#each boxes as box}
+        <button type="button" class="group rounded-xl border border-border bg-panel p-6 text-left transition hover:border-gold hover:bg-panel-raised" onclick={() => { selected = box; view = "detail"; loadEntries(); }}>
+          <div class="mb-5 flex size-12 items-center justify-center rounded-lg bg-accent text-primary transition group-hover:bg-primary group-hover:text-primary-foreground"><Icon name="archive" size={28} /></div>
+          <div class="flex items-end justify-between gap-3"><span class="min-w-0 truncate font-serif text-xl">{box.name}</span><span class="shrink-0 text-xs text-muted-foreground">{box.entry_count} {box.entry_count === 1 ? "entry" : "entries"}</span></div>
+        </button>
+      {/each}
+      <button type="button" class="flex min-h-44 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/60 bg-transparent p-6 text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onclick={() => { newName = ""; createOpen = true; }}>
+        <span class="flex size-12 items-center justify-center rounded-full border border-primary"><Icon name="plus" size={24} /></span>
+        <span class="font-medium">Add Box</span>
+      </button>
     </div>
-    <div class="mb-3 flex gap-2"><Input class="h-8" bind:value={newName} placeholder="New box name" onkeydown={(event) => event.key === "Enter" && create()} /></div>
-    {#each boxes as box}
-      <button class={`mb-1 w-full rounded-md px-3 py-2 text-left text-sm ${selected?.id === box.id ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`} onclick={() => { selected = box; loadEntries(); }}>{box.name}</button>
-    {:else}<p class="text-xs text-muted">No boxes yet.</p>{/each}
-  </aside>
-
+  </section>
+{:else}
   <section class="rounded-xl border border-border bg-panel p-6">
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div class="group flex min-w-0 items-center gap-2">
         {#if selected}
+          <Button variant="ghost" size="icon" class="size-9 shrink-0" aria-label="Back to Boxes" onclick={() => { view = "grid"; selected = null; entries = []; }}><Icon name="chevron-left" size={22} /></Button>
           {#if isEditingName}<Input bind:ref={nameInput} bind:value={nameDraft} class="h-10 max-w-full field-sizing-content font-serif! text-3xl!" onkeydown={(event) => event.key === "Enter" && saveName()} onblur={saveName} />
           {:else}<h2 class="font-serif text-3xl">{selected.name}</h2><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-semibold">{totalCards}</span><Button variant="ghost" size="icon" class="size-7 opacity-0 group-hover:opacity-100" aria-label="Rename Box" onclick={startEditingName}><Icon name="pencil" size={15} /></Button>{/if}
         {:else}<h2 class="font-serif text-3xl">Select a Box</h2>{/if}
@@ -242,7 +262,15 @@
       </p>
     {/if}
   </section>
-</div>
+{/if}
+
+<Dialog.Root bind:open={createOpen}>
+  <Dialog.Content class="border-border bg-panel-raised text-foreground">
+    <Dialog.Header><Dialog.Title class="font-serif text-2xl">Add Box</Dialog.Title><Dialog.Description class="text-muted-foreground">Give this storage location a name.</Dialog.Description></Dialog.Header>
+    <Input bind:value={newName} autofocus placeholder="Box name" aria-label="Box name" onkeydown={(event) => event.key === "Enter" && createAndOpen()} />
+    <Dialog.Footer><Button variant="outline" onclick={() => createOpen = false}>Cancel</Button><Button disabled={!newName.trim()} onclick={createAndOpen}>Create Box</Button></Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
 
 <Dialog.Root bind:open={quickOpen}>
   <Dialog.Content class="max-w-xl overflow-hidden border-border bg-panel-raised p-0 text-foreground" showCloseButton={false}>

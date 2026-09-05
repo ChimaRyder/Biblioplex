@@ -47,7 +47,7 @@ pub fn export(db: &Database) -> AppResult<String> {
     })? {
         locations.push(row?);
     }
-    let boxes = db.connection.prepare("SELECT id,name,archived FROM boxes")?.query_map([], |r| Ok(Box { id:r.get(0)?, name:r.get(1)?, archived:r.get::<_,i64>(2)? != 0 }))?.collect::<Result<Vec<_>,_>>()?;
+    let boxes = db.connection.prepare("SELECT id,name,archived FROM boxes")?.query_map([], |r| Ok(Box { id:r.get(0)?, name:r.get(1)?, archived:r.get::<_,i64>(2)? != 0, entry_count: 0 }))?.collect::<Result<Vec<_>,_>>()?;
     let box_entries = db.connection.prepare("SELECT id,box_id,owned_card_id,printing_id,quantity FROM box_entries")?.query_map([], |r| Ok(BoxEntry { id:r.get(0)?, box_id:r.get(1)?, owned_card_id:r.get(2)?, printing_id:r.get(3)?, quantity:r.get(4)? }))?.collect::<Result<Vec<_>,_>>()?;
     serde_json::to_string(&Backup {
         format_version: 1,

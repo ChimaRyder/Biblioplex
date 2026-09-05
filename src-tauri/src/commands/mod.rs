@@ -5,14 +5,14 @@ use std::sync::Mutex;
 use tauri::State;
 
 #[derive(Debug, Serialize)]
-pub struct BoxView { pub id: String, pub name: String, pub archived: bool }
+pub struct BoxView { pub id: String, pub name: String, pub archived: bool, pub entry_count: i64 }
 #[derive(Debug, Serialize)]
 pub struct BoxEntryView { pub id: String, pub box_id: String, pub owned_card_id: Option<String>, pub printing_id: String, pub quantity: i64, pub name: String, pub set_code: String, pub collector_number: String, pub rarity: Option<String>, pub mana_cost: Option<String>, pub mana_value: Option<f64>, pub card_type: Option<String>, pub colors: Vec<String>, pub collection_quantity: i64 }
 
 #[tauri::command]
-pub fn list_boxes(state: State<'_, Mutex<Database>>, archived: bool) -> Result<Vec<BoxView>, String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::list_boxes(&db,archived).map_err(db_error).map(|v|v.into_iter().map(|b|BoxView{id:b.id,name:b.name,archived:b.archived}).collect()) }
+pub fn list_boxes(state: State<'_, Mutex<Database>>, archived: bool) -> Result<Vec<BoxView>, String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::list_boxes(&db,archived).map_err(db_error).map(|v|v.into_iter().map(|b|BoxView{id:b.id,name:b.name,archived:b.archived,entry_count:b.entry_count}).collect()) }
 #[tauri::command]
-pub fn create_box(state: State<'_, Mutex<Database>>, name: String) -> Result<BoxView, String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; let id=uuid::Uuid::new_v4().to_string(); services::create_independent_box(&db,&id,&name).map_err(db_error)?; Ok(BoxView{id,name:name.trim().into(),archived:false}) }
+pub fn create_box(state: State<'_, Mutex<Database>>, name: String) -> Result<BoxView, String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; let id=uuid::Uuid::new_v4().to_string(); services::create_independent_box(&db,&id,&name).map_err(db_error)?; Ok(BoxView{id,name:name.trim().into(),archived:false,entry_count:0}) }
 #[tauri::command]
 pub fn update_box(state: State<'_, Mutex<Database>>, id: String, name: String) -> Result<(), String> { let db=state.lock().map_err(|_| "database lock poisoned".to_string())?; services::rename_box(&db,&id,&name).map_err(db_error) }
 #[tauri::command]
