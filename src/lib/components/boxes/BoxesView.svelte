@@ -145,14 +145,14 @@
 
 {#if view === "grid"}
   <section class="space-y-6">
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
       {#each boxes as box}
-        <button type="button" class="group rounded-xl border border-border bg-panel p-6 text-left transition hover:border-gold hover:bg-panel-raised" onclick={() => { selected = box; view = "detail"; loadEntries(); }}>
-          <div class="mb-5 flex size-12 items-center justify-center rounded-lg bg-accent text-primary transition group-hover:bg-primary group-hover:text-primary-foreground"><Icon name="archive" size={28} /></div>
-          <div class="flex items-end justify-between gap-3"><span class="min-w-0 truncate font-serif text-xl">{box.name}</span><span class="shrink-0 text-xs text-muted-foreground">{box.entry_count} {box.entry_count === 1 ? "entry" : "entries"}</span></div>
+        <button type="button" class="group mx-auto flex aspect-square w-full max-w-56 flex-col items-center justify-center rounded-xl p-6 text-center transition hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer" onclick={() => { selected = box; view = "detail"; loadEntries(); }}>
+          <div class="mb-5 flex size-20 items-center justify-center text-primary transition group-hover:text-foreground group-hover:scale-105 relative"><Icon name="archive" size={64} weight="fill"/><span class="absolute left-12 top-13 min-w-7 items-center justify-center rounded-full bg-accent px-2 py-0.5 text-xs font-semibold">{box.entry_count}</span></div>
+          <div class="flex max-w-full items-center justify-center gap-2"><span class="min-w-0 font-serif text-xl">{box.name}</span></div>
         </button>
       {/each}
-      <button type="button" class="flex min-h-44 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/60 bg-transparent p-6 text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onclick={() => { newName = ""; createOpen = true; }}>
+      <button type="button" class="mx-auto flex aspect-square w-full max-w-56 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/60 bg-transparent p-6 text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onclick={() => { newName = ""; createOpen = true; }}>
         <span class="flex size-12 items-center justify-center rounded-full border border-primary"><Icon name="plus" size={24} /></span>
         <span class="font-medium">Add Box</span>
       </button>
@@ -268,7 +268,7 @@
   <Dialog.Content class="border-border bg-panel-raised text-foreground">
     <Dialog.Header><Dialog.Title class="font-serif text-2xl">Add Box</Dialog.Title><Dialog.Description class="text-muted-foreground">Give this storage location a name.</Dialog.Description></Dialog.Header>
     <Input bind:value={newName} autofocus placeholder="Box name" aria-label="Box name" onkeydown={(event) => event.key === "Enter" && createAndOpen()} />
-    <Dialog.Footer><Button variant="outline" onclick={() => createOpen = false}>Cancel</Button><Button disabled={!newName.trim()} onclick={createAndOpen}>Create Box</Button></Dialog.Footer>
+    <Dialog.Footer class="bg-panel border-border"><Button variant="outline" onclick={() => createOpen = false}>Cancel</Button><Button disabled={!newName.trim()} onclick={createAndOpen}>Create Box</Button></Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
 
